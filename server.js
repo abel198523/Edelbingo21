@@ -66,13 +66,14 @@ bot.onText(/\/start/, async (msg) => {
     const miniAppUrlWithId = MINI_APP_URL ? `${MINI_APP_URL}?tg_id=${telegramId}` : null;
     
     if (isRegistered && miniAppUrlWithId) {
-        // User is registered - show Register, Play and Check Balance buttons
+        // User is registered - show full menu
         bot.sendMessage(chatId, "እንኳን ደህና መጡ! ጨዋታውን ለመጀመር 'Play' የሚለውን ቁልፍ ይጫኑ።", {
             reply_markup: {
                 keyboard: [
                     [{ text: "📱 Register", request_contact: true }],
                     [{ text: "▶️ Play", web_app: { url: miniAppUrlWithId } }],
-                    [{ text: "💰 Check Balance" }]
+                    [{ text: "💰 Check Balance" }, { text: "💳 Deposit" }],
+                    [{ text: "💸 Withdraw" }]
                 ],
                 resize_keyboard: true
             }
@@ -108,7 +109,8 @@ bot.on('contact', async (msg) => {
                     keyboard: [
                         [{ text: "📱 Register", request_contact: true }],
                         [{ text: "▶️ Play", web_app: { url: miniAppUrlWithId } }],
-                        [{ text: "💰 Check Balance" }]
+                        [{ text: "💰 Check Balance" }, { text: "💳 Deposit" }],
+                        [{ text: "💸 Withdraw" }]
                     ],
                     resize_keyboard: true
                 }
@@ -137,7 +139,8 @@ bot.on('contact', async (msg) => {
                 keyboard: [
                     [{ text: "📱 Register", request_contact: true }],
                     [{ text: "▶️ Play", web_app: { url: miniAppUrlWithId } }],
-                    [{ text: "💰 Check Balance" }]
+                    [{ text: "💰 Check Balance" }, { text: "💳 Deposit" }],
+                    [{ text: "💸 Withdraw" }]
                 ],
                 resize_keyboard: true
             }
@@ -169,6 +172,655 @@ bot.onText(/💰 Check Balance/, async (msg) => {
     } catch (error) {
         console.error('Balance check error:', error);
         bot.sendMessage(chatId, "ይቅርታ፣ ሒሳብዎን ማግኘት አልተቻለም።");
+    }
+});
+
+// User conversation state tracking
+const userStates = new Map();
+
+// Admin Telegram IDs - Add admin IDs here
+const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID;
+
+// Helper function to get main keyboard
+function getMainKeyboard(telegramId) {
+    const miniAppUrlWithId = MINI_APP_URL ? `${MINI_APP_URL}?tg_id=${telegramId}` : null;
+    return {
+        keyboard: [
+            [{ text: "📱 Register", request_contact: true }],
+            [{ text: "▶️ Play", web_app: { url: miniAppUrlWithId } }],
+            [{ text: "💰 Check Balance" }, { text: "💳 Deposit" }],
+            [{ text: "💸 Withdraw" }]
+        ],
+        resize_keyboard: true
+    };
+}
+
+// Helper to notify admin
+async function notifyAdmin(message) {
+    if (ADMIN_CHAT_ID) {
+        try {
+            await bot.sendMessage(ADMIN_CHAT_ID, message, { parse_mode: 'HTML' });
+        } catch (err) {
+            console.error('Failed to notify admin:', err.message);
+        }
+    }
+}
+
+// Helper to check withdrawal eligibility
+async function checkWithdrawEligibility(telegramId) {
+    try {
+        const userResult = await pool.query(
+            'SELECT u.id FROM users u WHERE u.telegram_id = $1',
+            [telegramId]
+        );
+        
+        if (userResult.rows.length === 0) {
+            return { eligible: false, reason: 'not_registered' };
+        }
+        
+        const userId = userResult.rows[0].id;
+        
+        const depositCount = await pool.query(
+            'SELECT COUNT(*) as count FROM deposits WHERE user_id = $1 AND status = $2',
+            [userId, 'confirmed']
+        );
+        
+        const winCount = await pool.query(
+            'SELECT COUNT(*) as count FROM game_participants WHERE user_id = $1 AND is_winner = true',
+            [userId]
+        );
+        
+        const deposits = parseInt(depositCount.rows[0].count);
+        const wins = parseInt(winCount.rows[0].count);
+        
+        if (deposits < 1) {
+            return { eligible: false, reason: 'no_deposit', deposits, wins };
+        }
+        
+        if (wins < 2) {
+            return { eligible: false, reason: 'not_enough_wins', deposits, wins };
+        }
+        
+        return { eligible: true, deposits, wins, userId };
+    } catch (error) {
+        console.error('Eligibility check error:', error);
+        return { eligible: false, reason: 'error' };
+    }
+}
+
+// Handle Withdraw button
+bot.onText(/💸 Withdraw/, async (msg) => {
+    const chatId = msg.chat.id;
+    const telegramId = msg.from.id;
+    
+    const eligibility = await checkWithdrawEligibility(telegramId);
+    
+    if (!eligibility.eligible) {
+        let message = '';
+        if (eligibility.reason === 'not_registered') {
+            message = '❌ እባክዎ መጀመሪያ ይመዝገቡ።';
+        } else if (eligibility.reason === 'no_deposit') {
+            message = `❌ ገንዘብ ለማውጣት ቢያንስ አንድ ጊዜ ዲፖዚት ማድረግ አለብዎ።\n\n📊 የእርስዎ ሁኔታ:\n• ዲፖዚቶች: ${eligibility.deposits || 0}\n• አሸናፊነቶች: ${eligibility.wins || 0}\n\n💡 መስፈርቶች:\n• ቢያንስ 1 ዲፖዚት\n• ቢያንስ 2 አሸናፊነት`;
+        } else if (eligibility.reason === 'not_enough_wins') {
+            message = `❌ ገንዘብ ለማውጣት ቢያንስ 2 ጊዜ ማሸነፍ አለብዎ።\n\n📊 የእርስዎ ሁኔታ:\n• ዲፖዚቶች: ${eligibility.deposits}\n• አሸናፊነቶች: ${eligibility.wins}\n\n💡 መስፈርቶች:\n• ቢያንስ 1 ዲፖዚት\n• ቢያንስ 2 አሸናፊነት`;
+        } else {
+            message = '❌ ይቅርታ፣ ስህተት ተፈጥሯል። እባክዎ እንደገና ይሞክሩ።';
+        }
+        
+        await bot.sendMessage(chatId, message, { reply_markup: getMainKeyboard(telegramId) });
+        return;
+    }
+    
+    userStates.set(telegramId, { 
+        action: 'withdraw', 
+        step: 'amount',
+        userId: eligibility.userId 
+    });
+    
+    const balanceResult = await pool.query(
+        'SELECT w.balance FROM users u JOIN wallets w ON u.id = w.user_id WHERE u.telegram_id = $1',
+        [telegramId]
+    );
+    const balance = parseFloat(balanceResult.rows[0]?.balance || 0).toFixed(2);
+    
+    await bot.sendMessage(chatId, 
+        `✅ መስፈርቶቹን አሟልተዋል!\n\n💰 ቀሪ ሒሳብ: ${balance} ብር\n\n💵 ማውጣት የሚፈልጉትን መጠን ያስገቡ:`,
+        { reply_markup: { keyboard: [[{ text: "❌ ሰርዝ" }]], resize_keyboard: true } }
+    );
+});
+
+// Handle Deposit button
+bot.onText(/💳 Deposit/, async (msg) => {
+    const chatId = msg.chat.id;
+    const telegramId = msg.from.id;
+    
+    try {
+        const userResult = await pool.query(
+            'SELECT id FROM users WHERE telegram_id = $1',
+            [telegramId]
+        );
+        
+        if (userResult.rows.length === 0) {
+            await bot.sendMessage(chatId, '❌ እባክዎ መጀመሪያ ይመዝገቡ። /start ይላኩ።');
+            return;
+        }
+        
+        userStates.set(telegramId, { 
+            action: 'deposit', 
+            step: 'method',
+            userId: userResult.rows[0].id 
+        });
+        
+        await bot.sendMessage(chatId, 
+            '💳 ዲፖዚት ለማድረግ የክፍያ ዘዴ ይምረጡ:',
+            { 
+                reply_markup: { 
+                    keyboard: [
+                        [{ text: "📱 Telebirr" }, { text: "🏦 CBE Birr" }],
+                        [{ text: "❌ ሰርዝ" }]
+                    ], 
+                    resize_keyboard: true 
+                } 
+            }
+        );
+    } catch (error) {
+        console.error('Deposit error:', error);
+        await bot.sendMessage(chatId, 'ይቅርታ፣ ስህተት ተፈጥሯል።');
+    }
+});
+
+// Handle Telebirr selection
+bot.onText(/📱 Telebirr/, async (msg) => {
+    const chatId = msg.chat.id;
+    const telegramId = msg.from.id;
+    const state = userStates.get(telegramId);
+    
+    if (state?.action === 'deposit' && state?.step === 'method') {
+        state.paymentMethod = 'telebirr';
+        state.step = 'amount';
+        userStates.set(telegramId, state);
+        
+        await bot.sendMessage(chatId, 
+            '📱 Telebirr ተመርጧል\n\n💵 ማስገባት የሚፈልጉትን መጠን (ብር) ያስገቡ:',
+            { reply_markup: { keyboard: [[{ text: "❌ ሰርዝ" }]], resize_keyboard: true } }
+        );
+    }
+});
+
+// Handle CBE Birr selection
+bot.onText(/🏦 CBE Birr/, async (msg) => {
+    const chatId = msg.chat.id;
+    const telegramId = msg.from.id;
+    const state = userStates.get(telegramId);
+    
+    if (state?.action === 'deposit' && state?.step === 'method') {
+        state.paymentMethod = 'cbe_birr';
+        state.step = 'amount';
+        userStates.set(telegramId, state);
+        
+        await bot.sendMessage(chatId, 
+            '🏦 CBE Birr ተመርጧል\n\n💵 ማስገባት የሚፈልጉትን መጠን (ብር) ያስገቡ:',
+            { reply_markup: { keyboard: [[{ text: "❌ ሰርዝ" }]], resize_keyboard: true } }
+        );
+    }
+});
+
+// Handle Cancel
+bot.onText(/❌ ሰርዝ/, async (msg) => {
+    const chatId = msg.chat.id;
+    const telegramId = msg.from.id;
+    
+    userStates.delete(telegramId);
+    await bot.sendMessage(chatId, '❌ ተሰርዟል።', { reply_markup: getMainKeyboard(telegramId) });
+});
+
+// Handle general text messages for conversation flow
+bot.on('message', async (msg) => {
+    if (!msg.text || msg.text.startsWith('/') || 
+        msg.text.includes('💰') || msg.text.includes('💸') || 
+        msg.text.includes('💳') || msg.text.includes('📱 Telebirr') || 
+        msg.text.includes('🏦 CBE Birr') || msg.text.includes('❌') ||
+        msg.text.includes('▶️') || msg.text.includes('📱 Register')) {
+        return;
+    }
+    
+    const chatId = msg.chat.id;
+    const telegramId = msg.from.id;
+    const text = msg.text.trim();
+    const state = userStates.get(telegramId);
+    
+    if (!state) return;
+    
+    // Handle Withdraw flow
+    if (state.action === 'withdraw') {
+        if (state.step === 'amount') {
+            const amount = parseFloat(text);
+            if (isNaN(amount) || amount <= 0) {
+                await bot.sendMessage(chatId, '❌ እባክዎ ትክክለኛ መጠን ያስገቡ።');
+                return;
+            }
+            
+            const balanceResult = await pool.query(
+                'SELECT w.balance FROM wallets w JOIN users u ON w.user_id = u.id WHERE u.telegram_id = $1',
+                [telegramId]
+            );
+            const balance = parseFloat(balanceResult.rows[0]?.balance || 0);
+            
+            if (amount > balance) {
+                await bot.sendMessage(chatId, `❌ በቂ ሒሳብ የለም። ቀሪ: ${balance.toFixed(2)} ብር`);
+                return;
+            }
+            
+            state.amount = amount;
+            state.step = 'phone';
+            userStates.set(telegramId, state);
+            
+            await bot.sendMessage(chatId, '📞 ገንዘቡ የሚላክበትን ስልክ ቁጥር ያስገቡ:');
+        } else if (state.step === 'phone') {
+            state.phone = text;
+            state.step = 'name';
+            userStates.set(telegramId, state);
+            
+            await bot.sendMessage(chatId, '👤 የአካውንት ባለቤት ስም ያስገቡ:');
+        } else if (state.step === 'name') {
+            state.accountName = text;
+            
+            try {
+                await pool.query(
+                    'INSERT INTO withdrawals (user_id, amount, phone_number, account_name, status) VALUES ($1, $2, $3, $4, $5)',
+                    [state.userId, state.amount, state.phone, state.accountName, 'pending']
+                );
+                
+                const userResult = await pool.query(
+                    'SELECT username FROM users WHERE id = $1',
+                    [state.userId]
+                );
+                const username = userResult.rows[0]?.username || 'Unknown';
+                
+                await notifyAdmin(
+                    `🔔 <b>አዲስ የገንዘብ ማውጣት ጥያቄ</b>\n\n` +
+                    `👤 ተጠቃሚ: ${username}\n` +
+                    `💵 መጠን: ${state.amount} ብር\n` +
+                    `📞 ስልክ: ${state.phone}\n` +
+                    `🏷 ስም: ${state.accountName}\n` +
+                    `📅 ቀን: ${new Date().toLocaleString('am-ET')}`
+                );
+                
+                userStates.delete(telegramId);
+                await bot.sendMessage(chatId, 
+                    `✅ የገንዘብ ማውጣት ጥያቄዎ ተልኳል!\n\n` +
+                    `💵 መጠን: ${state.amount} ብር\n` +
+                    `📞 ስልክ: ${state.phone}\n` +
+                    `🏷 ስም: ${state.accountName}\n\n` +
+                    `⏳ በቅርቡ ይፈጸማል።`,
+                    { reply_markup: getMainKeyboard(telegramId) }
+                );
+            } catch (error) {
+                console.error('Withdrawal request error:', error);
+                await bot.sendMessage(chatId, 'ይቅርታ፣ ስህተት ተፈጥሯል።');
+            }
+        }
+    }
+    
+    // Handle Deposit flow
+    if (state.action === 'deposit') {
+        if (state.step === 'amount') {
+            const amount = parseFloat(text);
+            if (isNaN(amount) || amount <= 0) {
+                await bot.sendMessage(chatId, '❌ እባክዎ ትክክለኛ መጠን ያስገቡ።');
+                return;
+            }
+            
+            state.amount = amount;
+            state.step = 'confirmation_code';
+            userStates.set(telegramId, state);
+            
+            const paymentInfo = state.paymentMethod === 'telebirr' 
+                ? '📱 Telebirr: 0912345678' 
+                : '🏦 CBE: 1000123456789';
+            
+            await bot.sendMessage(chatId, 
+                `💵 መጠን: ${amount} ብር\n\n` +
+                `${paymentInfo}\n\n` +
+                `ገንዘቡን ከላኩ በኋላ የማረጋገጫ ኮድዎን ያስገቡ:`
+            );
+        } else if (state.step === 'confirmation_code') {
+            state.confirmationCode = text;
+            
+            try {
+                await pool.query(
+                    'INSERT INTO deposits (user_id, amount, payment_method, confirmation_code, status) VALUES ($1, $2, $3, $4, $5)',
+                    [state.userId, state.amount, state.paymentMethod, state.confirmationCode, 'pending']
+                );
+                
+                const userResult = await pool.query(
+                    'SELECT username FROM users WHERE id = $1',
+                    [state.userId]
+                );
+                const username = userResult.rows[0]?.username || 'Unknown';
+                
+                await notifyAdmin(
+                    `🔔 <b>አዲስ ዲፖዚት ጥያቄ</b>\n\n` +
+                    `👤 ተጠቃሚ: ${username}\n` +
+                    `💵 መጠን: ${state.amount} ብር\n` +
+                    `💳 ዘዴ: ${state.paymentMethod === 'telebirr' ? 'Telebirr' : 'CBE Birr'}\n` +
+                    `🔑 ኮድ: ${state.confirmationCode}\n` +
+                    `📅 ቀን: ${new Date().toLocaleString('am-ET')}`
+                );
+                
+                userStates.delete(telegramId);
+                await bot.sendMessage(chatId, 
+                    `✅ የዲፖዚት ጥያቄዎ ተልኳል!\n\n` +
+                    `💵 መጠን: ${state.amount} ብር\n` +
+                    `💳 ዘዴ: ${state.paymentMethod === 'telebirr' ? 'Telebirr' : 'CBE Birr'}\n` +
+                    `🔑 ኮድ: ${state.confirmationCode}\n\n` +
+                    `⏳ ከተረጋገጠ በኋላ ሒሳብዎ ይጨምራል።`,
+                    { reply_markup: getMainKeyboard(telegramId) }
+                );
+            } catch (error) {
+                console.error('Deposit request error:', error);
+                await bot.sendMessage(chatId, 'ይቅርታ፣ ስህተት ተፈጥሯል።');
+            }
+        }
+    }
+});
+
+// Admin command to set admin
+bot.onText(/\/setadmin/, async (msg) => {
+    const chatId = msg.chat.id;
+    const telegramId = msg.from.id.toString();
+    
+    try {
+        await pool.query(
+            'INSERT INTO admin_users (telegram_id, username) VALUES ($1, $2) ON CONFLICT (telegram_id) DO UPDATE SET is_active = true',
+            [telegramId, msg.from.username || 'Admin']
+        );
+        
+        await bot.sendMessage(chatId, 
+            `✅ እርስዎ አድሚን ሆነዋል!\n\nChat ID: ${chatId}\n\nይህን Chat ID ወደ ADMIN_CHAT_ID environment variable ያስገቡ።`
+        );
+    } catch (error) {
+        console.error('Set admin error:', error);
+    }
+});
+
+// Admin command to view pending transactions
+bot.onText(/\/pending/, async (msg) => {
+    const chatId = msg.chat.id;
+    const telegramId = msg.from.id.toString();
+    
+    try {
+        const adminCheck = await pool.query(
+            'SELECT * FROM admin_users WHERE telegram_id = $1 AND is_active = true',
+            [telegramId]
+        );
+        
+        if (adminCheck.rows.length === 0 && chatId.toString() !== ADMIN_CHAT_ID) {
+            await bot.sendMessage(chatId, '❌ የአድሚን መብት የለዎትም።');
+            return;
+        }
+        
+        const pendingDeposits = await pool.query(`
+            SELECT d.id, d.amount, d.payment_method, d.confirmation_code, d.created_at, u.username
+            FROM deposits d
+            JOIN users u ON d.user_id = u.id
+            WHERE d.status = 'pending'
+            ORDER BY d.created_at DESC
+            LIMIT 10
+        `);
+        
+        const pendingWithdrawals = await pool.query(`
+            SELECT w.id, w.amount, w.phone_number, w.account_name, w.created_at, u.username
+            FROM withdrawals w
+            JOIN users u ON w.user_id = u.id
+            WHERE w.status = 'pending'
+            ORDER BY w.created_at DESC
+            LIMIT 10
+        `);
+        
+        let message = '📋 <b>በመጠባበቅ ላይ ያሉ ግብይቶች</b>\n\n';
+        
+        if (pendingDeposits.rows.length > 0) {
+            message += '💳 <b>ዲፖዚቶች:</b>\n';
+            for (const d of pendingDeposits.rows) {
+                message += `ID:${d.id} | ${d.username} | ${d.amount}ብር | ${d.payment_method} | ኮድ:${d.confirmation_code}\n`;
+            }
+            message += '\n';
+        } else {
+            message += '💳 ዲፖዚቶች የሉም\n\n';
+        }
+        
+        if (pendingWithdrawals.rows.length > 0) {
+            message += '💸 <b>ማውጣቶች:</b>\n';
+            for (const w of pendingWithdrawals.rows) {
+                message += `ID:${w.id} | ${w.username} | ${w.amount}ብር | ${w.phone_number} | ${w.account_name}\n`;
+            }
+        } else {
+            message += '💸 ማውጣቶች የሉም';
+        }
+        
+        message += '\n\n<b>Commands:</b>\n/approve_deposit [ID]\n/reject_deposit [ID]\n/approve_withdraw [ID]\n/reject_withdraw [ID]';
+        
+        await bot.sendMessage(chatId, message, { parse_mode: 'HTML' });
+    } catch (error) {
+        console.error('Pending check error:', error);
+        await bot.sendMessage(chatId, 'ስህተት ተፈጥሯል።');
+    }
+});
+
+// Approve deposit
+bot.onText(/\/approve_deposit (\d+)/, async (msg, match) => {
+    const chatId = msg.chat.id;
+    const telegramId = msg.from.id.toString();
+    const depositId = parseInt(match[1]);
+    
+    try {
+        const adminCheck = await pool.query(
+            'SELECT * FROM admin_users WHERE telegram_id = $1 AND is_active = true',
+            [telegramId]
+        );
+        
+        if (adminCheck.rows.length === 0 && chatId.toString() !== ADMIN_CHAT_ID) {
+            await bot.sendMessage(chatId, '❌ የአድሚን መብት የለዎትም።');
+            return;
+        }
+        
+        const deposit = await pool.query(
+            'SELECT d.*, u.telegram_id as user_telegram_id FROM deposits d JOIN users u ON d.user_id = u.id WHERE d.id = $1',
+            [depositId]
+        );
+        
+        if (deposit.rows.length === 0) {
+            await bot.sendMessage(chatId, '❌ ዲፖዚት አልተገኘም።');
+            return;
+        }
+        
+        const d = deposit.rows[0];
+        
+        if (d.status !== 'pending') {
+            await bot.sendMessage(chatId, '❌ ይህ ዲፖዚት ቀድሞ ተፈጽሟል።');
+            return;
+        }
+        
+        await pool.query('UPDATE deposits SET status = $1, confirmed_at = NOW() WHERE id = $2', ['confirmed', depositId]);
+        
+        await pool.query(
+            'UPDATE wallets SET balance = balance + $1, updated_at = NOW() WHERE user_id = $2',
+            [d.amount, d.user_id]
+        );
+        
+        await pool.query(
+            'INSERT INTO transactions (user_id, type, amount, description) VALUES ($1, $2, $3, $4)',
+            [d.user_id, 'deposit', d.amount, `Deposit via ${d.payment_method}`]
+        );
+        
+        await bot.sendMessage(chatId, `✅ ዲፖዚት #${depositId} ተፈቅዷል! ${d.amount} ብር ወደ ሒሳብ ተጨምሯል።`);
+        
+        if (d.user_telegram_id) {
+            await bot.sendMessage(d.user_telegram_id, 
+                `✅ ዲፖዚትዎ ተረጋግጧል!\n\n💵 ${d.amount} ብር ወደ ሒሳብዎ ተጨምሯል።`
+            );
+        }
+    } catch (error) {
+        console.error('Approve deposit error:', error);
+        await bot.sendMessage(chatId, 'ስህተት ተፈጥሯል።');
+    }
+});
+
+// Reject deposit
+bot.onText(/\/reject_deposit (\d+)/, async (msg, match) => {
+    const chatId = msg.chat.id;
+    const telegramId = msg.from.id.toString();
+    const depositId = parseInt(match[1]);
+    
+    try {
+        const adminCheck = await pool.query(
+            'SELECT * FROM admin_users WHERE telegram_id = $1 AND is_active = true',
+            [telegramId]
+        );
+        
+        if (adminCheck.rows.length === 0 && chatId.toString() !== ADMIN_CHAT_ID) {
+            await bot.sendMessage(chatId, '❌ የአድሚን መብት የለዎትም።');
+            return;
+        }
+        
+        const deposit = await pool.query(
+            'SELECT d.*, u.telegram_id as user_telegram_id FROM deposits d JOIN users u ON d.user_id = u.id WHERE d.id = $1',
+            [depositId]
+        );
+        
+        if (deposit.rows.length === 0) {
+            await bot.sendMessage(chatId, '❌ ዲፖዚት አልተገኘም።');
+            return;
+        }
+        
+        const d = deposit.rows[0];
+        
+        await pool.query('UPDATE deposits SET status = $1 WHERE id = $2', ['rejected', depositId]);
+        
+        await bot.sendMessage(chatId, `❌ ዲፖዚት #${depositId} ተቀባይነት አላገኘም።`);
+        
+        if (d.user_telegram_id) {
+            await bot.sendMessage(d.user_telegram_id, 
+                `❌ ዲፖዚትዎ ተቀባይነት አላገኘም።\n\nእባክዎ ትክክለኛ መረጃ ይላኩ ወይም ድጋሚ ይሞክሩ።`
+            );
+        }
+    } catch (error) {
+        console.error('Reject deposit error:', error);
+        await bot.sendMessage(chatId, 'ስህተት ተፈጥሯል።');
+    }
+});
+
+// Approve withdrawal
+bot.onText(/\/approve_withdraw (\d+)/, async (msg, match) => {
+    const chatId = msg.chat.id;
+    const telegramId = msg.from.id.toString();
+    const withdrawalId = parseInt(match[1]);
+    
+    try {
+        const adminCheck = await pool.query(
+            'SELECT * FROM admin_users WHERE telegram_id = $1 AND is_active = true',
+            [telegramId]
+        );
+        
+        if (adminCheck.rows.length === 0 && chatId.toString() !== ADMIN_CHAT_ID) {
+            await bot.sendMessage(chatId, '❌ የአድሚን መብት የለዎትም።');
+            return;
+        }
+        
+        const withdrawal = await pool.query(
+            'SELECT w.*, u.telegram_id as user_telegram_id FROM withdrawals w JOIN users u ON w.user_id = u.id WHERE w.id = $1',
+            [withdrawalId]
+        );
+        
+        if (withdrawal.rows.length === 0) {
+            await bot.sendMessage(chatId, '❌ ማውጣት ጥያቄ አልተገኘም።');
+            return;
+        }
+        
+        const w = withdrawal.rows[0];
+        
+        if (w.status !== 'pending') {
+            await bot.sendMessage(chatId, '❌ ይህ ጥያቄ ቀድሞ ተፈጽሟል።');
+            return;
+        }
+        
+        const balanceCheck = await pool.query(
+            'SELECT balance FROM wallets WHERE user_id = $1',
+            [w.user_id]
+        );
+        
+        if (parseFloat(balanceCheck.rows[0]?.balance || 0) < w.amount) {
+            await bot.sendMessage(chatId, '❌ ተጠቃሚው በቂ ሒሳብ የለውም።');
+            return;
+        }
+        
+        await pool.query('UPDATE withdrawals SET status = $1, processed_at = NOW() WHERE id = $2', ['approved', withdrawalId]);
+        
+        await pool.query(
+            'UPDATE wallets SET balance = balance - $1, updated_at = NOW() WHERE user_id = $2',
+            [w.amount, w.user_id]
+        );
+        
+        await pool.query(
+            'INSERT INTO transactions (user_id, type, amount, description) VALUES ($1, $2, $3, $4)',
+            [w.user_id, 'withdrawal', w.amount, `Withdrawal to ${w.phone_number}`]
+        );
+        
+        await bot.sendMessage(chatId, `✅ ማውጣት #${withdrawalId} ተፈቅዷል! ${w.amount} ብር ወደ ${w.phone_number} ይላካል።`);
+        
+        if (w.user_telegram_id) {
+            await bot.sendMessage(w.user_telegram_id, 
+                `✅ የገንዘብ ማውጣት ጥያቄዎ ተፈቅዷል!\n\n💵 ${w.amount} ብር ወደ ${w.phone_number} ተልኳል።`
+            );
+        }
+    } catch (error) {
+        console.error('Approve withdrawal error:', error);
+        await bot.sendMessage(chatId, 'ስህተት ተፈጥሯል።');
+    }
+});
+
+// Reject withdrawal
+bot.onText(/\/reject_withdraw (\d+)/, async (msg, match) => {
+    const chatId = msg.chat.id;
+    const telegramId = msg.from.id.toString();
+    const withdrawalId = parseInt(match[1]);
+    
+    try {
+        const adminCheck = await pool.query(
+            'SELECT * FROM admin_users WHERE telegram_id = $1 AND is_active = true',
+            [telegramId]
+        );
+        
+        if (adminCheck.rows.length === 0 && chatId.toString() !== ADMIN_CHAT_ID) {
+            await bot.sendMessage(chatId, '❌ የአድሚን መብት የለዎትም።');
+            return;
+        }
+        
+        const withdrawal = await pool.query(
+            'SELECT w.*, u.telegram_id as user_telegram_id FROM withdrawals w JOIN users u ON w.user_id = u.id WHERE w.id = $1',
+            [withdrawalId]
+        );
+        
+        if (withdrawal.rows.length === 0) {
+            await bot.sendMessage(chatId, '❌ ማውጣት ጥያቄ አልተገኘም።');
+            return;
+        }
+        
+        const w = withdrawal.rows[0];
+        
+        await pool.query('UPDATE withdrawals SET status = $1, processed_at = NOW() WHERE id = $2', ['rejected', withdrawalId]);
+        
+        await bot.sendMessage(chatId, `❌ ማውጣት #${withdrawalId} ተቀባይነት አላገኘም።`);
+        
+        if (w.user_telegram_id) {
+            await bot.sendMessage(w.user_telegram_id, 
+                `❌ የገንዘብ ማውጣት ጥያቄዎ ተቀባይነት አላገኘም።\n\nለበለጠ መረጃ እባክዎ ያግኙን።`
+            );
+        }
+    } catch (error) {
+        console.error('Reject withdrawal error:', error);
+        await bot.sendMessage(chatId, 'ስህተት ተፈጥሯል።');
     }
 });
 
@@ -946,7 +1598,262 @@ app.post('/api/bet', async (req, res) => {
     }
 });
 
-const PORT = process.env.PORT || 10000;
+// ================== Admin API Routes ==================
+
+// Admin Stats
+app.get('/api/admin/stats', async (req, res) => {
+    try {
+        const totalUsers = await pool.query('SELECT COUNT(*) as count FROM users');
+        const pendingDeposits = await pool.query('SELECT COUNT(*) as count FROM deposits WHERE status = $1', ['pending']);
+        const pendingWithdrawals = await pool.query('SELECT COUNT(*) as count FROM withdrawals WHERE status = $1', ['pending']);
+        const todayGames = await pool.query(
+            "SELECT COUNT(*) as count FROM games WHERE started_at >= CURRENT_DATE"
+        );
+        
+        res.json({
+            totalUsers: parseInt(totalUsers.rows[0].count),
+            pendingDeposits: parseInt(pendingDeposits.rows[0].count),
+            pendingWithdrawals: parseInt(pendingWithdrawals.rows[0].count),
+            todayGames: parseInt(todayGames.rows[0].count)
+        });
+    } catch (err) {
+        console.error('Admin stats error:', err);
+        res.status(500).json({ error: 'Failed to fetch stats' });
+    }
+});
+
+// Get all deposits
+app.get('/api/admin/deposits', async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT d.*, u.username 
+            FROM deposits d 
+            JOIN users u ON d.user_id = u.id 
+            ORDER BY d.created_at DESC 
+            LIMIT 100
+        `);
+        res.json(result.rows);
+    } catch (err) {
+        console.error('Admin deposits error:', err);
+        res.status(500).json({ error: 'Failed to fetch deposits' });
+    }
+});
+
+// Get all withdrawals
+app.get('/api/admin/withdrawals', async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT w.*, u.username 
+            FROM withdrawals w 
+            JOIN users u ON w.user_id = u.id 
+            ORDER BY w.created_at DESC 
+            LIMIT 100
+        `);
+        res.json(result.rows);
+    } catch (err) {
+        console.error('Admin withdrawals error:', err);
+        res.status(500).json({ error: 'Failed to fetch withdrawals' });
+    }
+});
+
+// Get all users
+app.get('/api/admin/users', async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT u.id, u.username, u.phone_number, u.created_at, w.balance 
+            FROM users u 
+            LEFT JOIN wallets w ON u.id = w.user_id 
+            ORDER BY u.created_at DESC 
+            LIMIT 100
+        `);
+        res.json(result.rows);
+    } catch (err) {
+        console.error('Admin users error:', err);
+        res.status(500).json({ error: 'Failed to fetch users' });
+    }
+});
+
+// Get transactions
+app.get('/api/admin/transactions', async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT t.*, u.username 
+            FROM transactions t 
+            JOIN users u ON t.user_id = u.id 
+            ORDER BY t.created_at DESC 
+            LIMIT 100
+        `);
+        res.json(result.rows);
+    } catch (err) {
+        console.error('Admin transactions error:', err);
+        res.status(500).json({ error: 'Failed to fetch transactions' });
+    }
+});
+
+// Approve deposit via API
+app.post('/api/admin/deposits/:id/approve', async (req, res) => {
+    try {
+        const depositId = parseInt(req.params.id);
+        
+        const deposit = await pool.query(
+            'SELECT d.*, u.telegram_id as user_telegram_id FROM deposits d JOIN users u ON d.user_id = u.id WHERE d.id = $1',
+            [depositId]
+        );
+        
+        if (deposit.rows.length === 0) {
+            return res.status(404).json({ error: 'Deposit not found' });
+        }
+        
+        const d = deposit.rows[0];
+        
+        if (d.status !== 'pending') {
+            return res.status(400).json({ error: 'Deposit already processed' });
+        }
+        
+        await pool.query('UPDATE deposits SET status = $1, confirmed_at = NOW() WHERE id = $2', ['confirmed', depositId]);
+        
+        await pool.query(
+            'UPDATE wallets SET balance = balance + $1, updated_at = NOW() WHERE user_id = $2',
+            [d.amount, d.user_id]
+        );
+        
+        await pool.query(
+            'INSERT INTO transactions (user_id, type, amount, description) VALUES ($1, $2, $3, $4)',
+            [d.user_id, 'deposit', d.amount, `Deposit via ${d.payment_method}`]
+        );
+        
+        if (d.user_telegram_id && bot) {
+            bot.sendMessage(d.user_telegram_id, 
+                `✅ ዲፖዚትዎ ተረጋግጧል!\n\n💵 ${d.amount} ብር ወደ ሒሳብዎ ተጨምሯል።`
+            ).catch(err => console.error('Telegram notify error:', err));
+        }
+        
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Approve deposit error:', err);
+        res.status(500).json({ error: 'Failed to approve deposit' });
+    }
+});
+
+// Reject deposit via API
+app.post('/api/admin/deposits/:id/reject', async (req, res) => {
+    try {
+        const depositId = parseInt(req.params.id);
+        
+        const deposit = await pool.query(
+            'SELECT d.*, u.telegram_id as user_telegram_id FROM deposits d JOIN users u ON d.user_id = u.id WHERE d.id = $1',
+            [depositId]
+        );
+        
+        if (deposit.rows.length === 0) {
+            return res.status(404).json({ error: 'Deposit not found' });
+        }
+        
+        const d = deposit.rows[0];
+        
+        await pool.query('UPDATE deposits SET status = $1 WHERE id = $2', ['rejected', depositId]);
+        
+        if (d.user_telegram_id && bot) {
+            bot.sendMessage(d.user_telegram_id, 
+                `❌ ዲፖዚትዎ ተቀባይነት አላገኘም።\n\nእባክዎ ትክክለኛ መረጃ ይላኩ ወይም ድጋሚ ይሞክሩ።`
+            ).catch(err => console.error('Telegram notify error:', err));
+        }
+        
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Reject deposit error:', err);
+        res.status(500).json({ error: 'Failed to reject deposit' });
+    }
+});
+
+// Approve withdrawal via API
+app.post('/api/admin/withdrawals/:id/approve', async (req, res) => {
+    try {
+        const withdrawalId = parseInt(req.params.id);
+        
+        const withdrawal = await pool.query(
+            'SELECT w.*, u.telegram_id as user_telegram_id FROM withdrawals w JOIN users u ON w.user_id = u.id WHERE w.id = $1',
+            [withdrawalId]
+        );
+        
+        if (withdrawal.rows.length === 0) {
+            return res.status(404).json({ error: 'Withdrawal not found' });
+        }
+        
+        const w = withdrawal.rows[0];
+        
+        if (w.status !== 'pending') {
+            return res.status(400).json({ error: 'Withdrawal already processed' });
+        }
+        
+        const balanceCheck = await pool.query(
+            'SELECT balance FROM wallets WHERE user_id = $1',
+            [w.user_id]
+        );
+        
+        if (parseFloat(balanceCheck.rows[0]?.balance || 0) < w.amount) {
+            return res.status(400).json({ error: 'Insufficient balance' });
+        }
+        
+        await pool.query('UPDATE withdrawals SET status = $1, processed_at = NOW() WHERE id = $2', ['approved', withdrawalId]);
+        
+        await pool.query(
+            'UPDATE wallets SET balance = balance - $1, updated_at = NOW() WHERE user_id = $2',
+            [w.amount, w.user_id]
+        );
+        
+        await pool.query(
+            'INSERT INTO transactions (user_id, type, amount, description) VALUES ($1, $2, $3, $4)',
+            [w.user_id, 'withdrawal', w.amount, `Withdrawal to ${w.phone_number}`]
+        );
+        
+        if (w.user_telegram_id && bot) {
+            bot.sendMessage(w.user_telegram_id, 
+                `✅ የገንዘብ ማውጣት ጥያቄዎ ተፈቅዷል!\n\n💵 ${w.amount} ብር ወደ ${w.phone_number} ተልኳል።`
+            ).catch(err => console.error('Telegram notify error:', err));
+        }
+        
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Approve withdrawal error:', err);
+        res.status(500).json({ error: 'Failed to approve withdrawal' });
+    }
+});
+
+// Reject withdrawal via API
+app.post('/api/admin/withdrawals/:id/reject', async (req, res) => {
+    try {
+        const withdrawalId = parseInt(req.params.id);
+        
+        const withdrawal = await pool.query(
+            'SELECT w.*, u.telegram_id as user_telegram_id FROM withdrawals w JOIN users u ON w.user_id = u.id WHERE w.id = $1',
+            [withdrawalId]
+        );
+        
+        if (withdrawal.rows.length === 0) {
+            return res.status(404).json({ error: 'Withdrawal not found' });
+        }
+        
+        const w = withdrawal.rows[0];
+        
+        await pool.query('UPDATE withdrawals SET status = $1, processed_at = NOW() WHERE id = $2', ['rejected', withdrawalId]);
+        
+        if (w.user_telegram_id && bot) {
+            bot.sendMessage(w.user_telegram_id, 
+                `❌ የገንዘብ ማውጣት ጥያቄዎ ተቀባይነት አላገኘም።\n\nለበለጠ መረጃ እባክዎ ያግኙን።`
+            ).catch(err => console.error('Telegram notify error:', err));
+        }
+        
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Reject withdrawal error:', err);
+        res.status(500).json({ error: 'Failed to reject withdrawal' });
+    }
+});
+
+// ================== End Admin API Routes ==================
+
+const PORT = process.env.PORT || 5000;
 
 async function startServer() {
     try {

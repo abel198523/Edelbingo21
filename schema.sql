@@ -75,9 +75,48 @@ FROM games g
 LEFT JOIN users u ON g.winner_id = u.id
 ORDER BY g.started_at DESC;
 
+-- Deposits table
+CREATE TABLE IF NOT EXISTS deposits (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    amount DECIMAL(10, 2) NOT NULL,
+    payment_method VARCHAR(50) NOT NULL,
+    confirmation_code VARCHAR(100),
+    status VARCHAR(20) DEFAULT 'pending',
+    phone_number VARCHAR(20),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    confirmed_at TIMESTAMP
+);
+
+-- Withdrawals table
+CREATE TABLE IF NOT EXISTS withdrawals (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    amount DECIMAL(10, 2) NOT NULL,
+    phone_number VARCHAR(20) NOT NULL,
+    account_name VARCHAR(100) NOT NULL,
+    status VARCHAR(20) DEFAULT 'pending',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    processed_at TIMESTAMP,
+    admin_note TEXT
+);
+
+-- Admin users table
+CREATE TABLE IF NOT EXISTS admin_users (
+    id SERIAL PRIMARY KEY,
+    telegram_id VARCHAR(100) UNIQUE NOT NULL,
+    username VARCHAR(50),
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_transactions_user_id ON transactions(user_id);
 CREATE INDEX IF NOT EXISTS idx_transactions_created_at ON transactions(created_at);
 CREATE INDEX IF NOT EXISTS idx_games_status ON games(status);
 CREATE INDEX IF NOT EXISTS idx_game_participants_user_id ON game_participants(user_id);
 CREATE INDEX IF NOT EXISTS idx_game_participants_game_id ON game_participants(game_id);
+CREATE INDEX IF NOT EXISTS idx_deposits_user_id ON deposits(user_id);
+CREATE INDEX IF NOT EXISTS idx_deposits_status ON deposits(status);
+CREATE INDEX IF NOT EXISTS idx_withdrawals_user_id ON withdrawals(user_id);
+CREATE INDEX IF NOT EXISTS idx_withdrawals_status ON withdrawals(status);
