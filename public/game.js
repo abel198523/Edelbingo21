@@ -232,15 +232,18 @@ function updateTakenCards(takenCards) {
 }
 
 function markCardAsTaken(cardId) {
+    // Don't mark as taken if it's the current player's selected card
+    if (cardId === selectedCardId) return;
+
     const btn = document.getElementById(`card-btn-${cardId}`);
     if (btn) {
         btn.classList.add('taken');
-        btn.style.backgroundColor = '#ff4d4d'; // Red color
-        btn.style.borderColor = '#ff4d4d';
-        btn.style.color = 'white';
-        btn.style.opacity = '0.6';
-        btn.style.cursor = 'not-allowed';
-        btn.style.pointerEvents = 'none';
+        btn.style.setProperty('background-color', '#ff4d4d', 'important'); // Red color
+        btn.style.setProperty('border-color', '#ff4d4d', 'important');
+        btn.style.setProperty('color', 'white', 'important');
+        btn.style.setProperty('opacity', '0.6', 'important');
+        btn.style.setProperty('cursor', 'not-allowed', 'important');
+        btn.style.setProperty('pointer-events', 'none', 'important');
     }
 }
 
