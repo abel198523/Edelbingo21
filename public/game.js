@@ -458,36 +458,39 @@ function handleWebSocketMessage(data) {
             updateTimerDisplay(data.timeLeft);
             updatePhaseDisplay(data.phase);
             renderMasterGrid();
+            
+            // Update stats
+            if (data.gameId) {
+                const stakeEl = document.getElementById('game-stake');
+                if (stakeEl) stakeEl.textContent = `${parseFloat(data.stake || 10).toFixed(2)}Br`;
+            }
+            
             if (data.calledNumbers && data.calledNumbers.length > 0) {
-                data.calledNumbers.forEach(num => {
+                data.calledNumbers.forEach((num, index) => {
                     markCalledNumber(num);
                     markMasterNumber(num);
+                    if (index === data.calledNumbers.length - 1) {
+                        displayCalledNumber(getLetterForNumber(num), num);
+                    }
                 });
+                const calledCountEl = document.getElementById('called-count');
+                if (calledCountEl) calledCountEl.textContent = `${data.calledNumbers.length}/75`;
             }
-            break;
-        case 'auth_success':
-            console.log('Authentication successful:', data.user);
-            if (data.user && data.user.balance !== undefined) {
-                updateWalletDisplay(data.user.balance);
-            }
-            break;
-        case 'balance_update':
-            updateWalletDisplay(data.balance);
-            break;
-        case 'card_confirmed':
-            updateWalletDisplay(data.balance);
-            renderMasterGrid();
-            break;
-        case 'phase_change':
-            console.log('Phase changed:', data.phase);
-            updatePhaseDisplay(data.phase);
-            handlePhaseChange(data);
             break;
         case 'number_called':
             console.log('Number called:', data.letter + data.number);
             displayCalledNumber(data.letter, data.number);
             markCalledNumber(data.number);
             markMasterNumber(data.number);
+            
+            // Update called count
+            if (data.calledNumbers) {
+                const calledCountEl = document.getElementById('called-count');
+                if (calledCountEl) calledCountEl.textContent = `${data.calledNumbers.length}/75`;
+            }
+            break;
+        case 'card_confirmed':
+            updateWalletDisplay(data.balance);
             break;
         case 'timer_update':
             updateTimerDisplay(data.timeLeft);
