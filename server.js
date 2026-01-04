@@ -146,7 +146,7 @@ bot.on('contact', async (msg) => {
 
         // If referred, handle referral bonus
         if (referrerId) {
-            const bonusAmount = 5.00;
+            const bonusAmount = 2.00;
             await pool.query('INSERT INTO referrals (referrer_id, referred_id, bonus_amount) VALUES ($1, $2, $3)', [referrerId, userId, bonusAmount]);
             await pool.query('UPDATE wallets SET balance = balance + $1 WHERE user_id = $2', [bonusAmount, referrerId]);
             
@@ -229,7 +229,7 @@ bot.onText(/🔗 Referral Link/, async (msg) => {
     const referralLink = `https://t.me/${botInfo.username}?start=${telegramId}`;
     
     const message = `🎁 <b>የሪፈራል ፕሮግራም</b>\n\n` +
-                    `ይህንን ሊንክ ለጓደኞችዎ ይላኩ። በሊንክዎ ለሚመዘገብ ለእያንዳንዱ ሰው የ <b>5 ብር</b> ቦነስ ያገኛሉ!\n\n` +
+                    `ይህንን ሊንክ ለጓደኞችዎ ይላኩ። በሊንክዎ ለሚመዘገብ ለእያንዳንዱ ሰው የ <b>2 ብር</b> ቦነስ ያገኛሉ!\n\n` +
                     `🔗 የእርስዎ ሊንክ:\n<code>${referralLink}</code>`;
     
     bot.sendMessage(chatId, message, { parse_mode: 'HTML' });
