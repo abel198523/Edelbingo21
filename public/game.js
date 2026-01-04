@@ -6,6 +6,7 @@ let isRegistered = false;
 document.addEventListener('DOMContentLoaded', function() {
     initializeUser();
     checkRegistrationAndProceed();
+    initializeBingoButton(); // Add this
 });
 
 async function checkRegistrationAndProceed() {
@@ -506,6 +507,11 @@ function handleWebSocketMessage(data) {
                 }
             }
             break;
+        case 'phase_change':
+            console.log('Phase changed:', data.phase);
+            updatePhaseDisplay(data.phase);
+            handlePhaseChange(data);
+            break;
         case 'error':
             alert(data.error || 'ችግር ተፈጥሯል');
             break;
@@ -600,8 +606,9 @@ function markMasterNumber(number) {
     
     const cells = masterGrid.querySelectorAll('.master-cell');
     cells.forEach(cell => {
+        cell.classList.remove('last-called');
         if (parseInt(cell.dataset.number) === number) {
-            cell.classList.add('called');
+            cell.classList.add('called', 'last-called');
         }
     });
 }
@@ -611,19 +618,58 @@ function clearMasterGrid() {
     if (!masterGrid) return;
     
     const cells = masterGrid.querySelectorAll('.master-cell');
-    cells.forEach(cell => cell.classList.remove('called'));
+    cells.forEach(cell => cell.classList.remove('called', 'last-called'));
+}
+
+function displayCalledNumber(letter, number) {
+    const lastLetterEl = document.getElementById('last-letter');
+    const lastNumberEl = document.getElementById('last-number');
+    const prev1 = document.getElementById('prev-called-1');
+    const prev2 = document.getElementById('prev-called-2');
+    
+    if (lastLetterEl && lastNumberEl) {
+        const currentLetter = lastLetterEl.textContent;
+        const currentNumber = lastNumberEl.textContent;
+        
+        // Shift current to history
+        if (currentLetter && currentNumber && currentNumber !== '--') {
+            if (prev1) {
+                if (prev2) prev2.textContent = prev1.textContent;
+                prev1.textContent = currentLetter + currentNumber;
+            }
+        }
+        
+        lastLetterEl.textContent = letter;
+        lastNumberEl.textContent = number;
+        
+        // Add animation class
+        const ball = document.getElementById('last-called-ball');
+        if (ball) {
+            ball.classList.remove('new-call');
+            void ball.offsetWidth; // trigger reflow
+            ball.classList.add('new-call');
+        }
+    }
+}
+
+function getLetterForNumber(number) {
+    if (number <= 15) return 'B';
+    if (number <= 30) return 'I';
+    if (number <= 45) return 'N';
+    if (number <= 60) return 'G';
+    return 'O';
 }
 
 function clearCallHistory() {
-    const historyElement = document.getElementById('call-history');
-    if (historyElement) {
-        historyElement.innerHTML = '';
-    }
+    const lastLetterEl = document.getElementById('last-letter');
+    const lastNumberEl = document.getElementById('last-number');
+    const prev1 = document.getElementById('prev-called-1');
+    const prev2 = document.getElementById('prev-called-2');
     
-    const letterElement = document.getElementById('call-letter');
-    const numberElement = document.getElementById('call-number');
-    if (letterElement) letterElement.textContent = '';
-    if (numberElement) numberElement.textContent = '--';
+    if (lastLetterEl) lastLetterEl.textContent = '';
+    if (lastNumberEl) lastNumberEl.textContent = '--';
+    if (prev1) prev1.textContent = '';
+    if (prev2) prev2.textContent = '';
 }
 
 function updateTimerDisplay(timeLeft) {
@@ -646,38 +692,6 @@ function updatePhaseDisplay(phase) {
     }
 }
 
-function displayCalledNumber(letter, number) {
-    const letterElement = document.getElementById('call-letter');
-    const numberElement = document.getElementById('call-number');
-    
-    if (letterElement) {
-        letterElement.textContent = letter;
-    }
-    if (numberElement) {
-        numberElement.textContent = number;
-    }
-    
-    const callCircle = document.getElementById('current-call');
-    if (callCircle) {
-        callCircle.classList.add('new-call');
-        setTimeout(() => callCircle.classList.remove('new-call'), 500);
-    }
-    
-    // Add to call history (limit to 3)
-    const historyElement = document.getElementById('call-history');
-    if (historyElement) {
-        const callItem = document.createElement('span');
-        callItem.className = 'history-call';
-        callItem.textContent = letter + number;
-        historyElement.insertBefore(callItem, historyElement.firstChild);
-        
-        // Keep only last 3 calls
-        while (historyElement.children.length > 3) {
-            historyElement.removeChild(historyElement.lastChild);
-        }
-    }
-}
-
 function markCalledNumber(number) {
     calledNumbersSet.add(number);
     
@@ -689,71 +703,12 @@ function markCalledNumber(number) {
     });
 }
 
-async function handleCardConfirmation(cardId) {
-    if (!currentUserId) {
-        console.error('User not initialized');
-        return { success: false, message: 'እባክዎ መጀመሪያ ከቴሌግራም ቦት ይመዝገቡ' };
-    }
-    
-    try {
-        const response = await fetch('/api/bet', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                userId: currentUserId,
-                stakeAmount: currentStake
-            })
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            updateWalletDisplay(result.balance);
-            
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({
-                    type: 'confirm_card',
-                    cardId: cardId
-                }));
-            }
-        }
-        
-        return result;
-    } catch (error) {
-        console.error('Error placing bet:', error);
-        return { success: false, message: 'Bet failed' };
-    }
-}
-
-function refreshBalance() {
-    loadWallet();
-}
-
 // Bingo button functionality
 function initializeBingoButton() {
     const bingoBtn = document.getElementById('bingo-btn');
     if (bingoBtn) {
         bingoBtn.addEventListener('click', function() {
             claimBingo();
-        });
-    }
-    
-    const exitBtn = document.getElementById('exit-btn');
-    if (exitBtn) {
-        exitBtn.addEventListener('click', function() {
-            const gameScreen = document.getElementById('game-screen');
-            const landingScreen = document.getElementById('landing-screen');
-            if (gameScreen) gameScreen.style.display = 'none';
-            if (landingScreen) landingScreen.style.display = 'flex';
-        });
-    }
-    
-    const refreshBtn = document.getElementById('refresh-btn');
-    if (refreshBtn) {
-        refreshBtn.addEventListener('click', function() {
-            refreshBalance();
         });
     }
 }
@@ -764,79 +719,17 @@ function claimBingo() {
         return;
     }
     
-    const isValid = checkBingo(selectedCardId);
-    
-    if (isValid) {
-        if (ws && ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({
-                type: 'claim_bingo',
-                cardId: selectedCardId,
-                isValid: true
-            }));
-        }
-    } else {
-        alert('ቢንጎ የለዎትም። ሙሉ መስመር ይፈልጉ።');
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+            type: 'claim_bingo',
+            cardId: selectedCardId
+        }));
     }
 }
 
-function checkBingo(cardId) {
-    const cardData = BINGO_CARDS[cardId];
-    if (!cardData) return false;
-    
-    // Only use server-called numbers (not manually marked cells)
-    const markedNumbers = calledNumbersSet;
-    
-    // Check rows
-    for (let row = 0; row < 5; row++) {
-        let rowComplete = true;
-        for (let col = 0; col < 5; col++) {
-            const num = cardData[row][col];
-            if (num === 0) continue; // Free space
-            if (!markedNumbers.has(num)) {
-                rowComplete = false;
-                break;
-            }
-        }
-        if (rowComplete) return true;
-    }
-    
-    // Check columns
-    for (let col = 0; col < 5; col++) {
-        let colComplete = true;
-        for (let row = 0; row < 5; row++) {
-            const num = cardData[row][col];
-            if (num === 0) continue; // Free space
-            if (!markedNumbers.has(num)) {
-                colComplete = false;
-                break;
-            }
-        }
-        if (colComplete) return true;
-    }
-    
-    // Check diagonals
-    let diag1Complete = true;
-    let diag2Complete = true;
-    for (let i = 0; i < 5; i++) {
-        const num1 = cardData[i][i];
-        const num2 = cardData[i][4 - i];
-        
-        if (num1 !== 0 && !markedNumbers.has(num1)) diag1Complete = false;
-        if (num2 !== 0 && !markedNumbers.has(num2)) diag2Complete = false;
-    }
-    
-    if (diag1Complete || diag2Complete) return true;
-    
-    return false;
+function refreshBalance() {
+    loadWallet();
 }
 
-// Initialize Bingo button when DOM is ready
-document.addEventListener('DOMContentLoaded', function() {
-    initializeBingoButton();
-});
-
-window.currentUserId = currentUserId;
-window.currentStake = currentStake;
-window.handleCardConfirmation = handleCardConfirmation;
 window.refreshBalance = refreshBalance;
 window.claimBingo = claimBingo;
