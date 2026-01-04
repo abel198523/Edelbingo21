@@ -1094,7 +1094,7 @@ async function gameLoop() {
 function getConfirmedPlayersCount() {
     let count = 0;
     gameState.players.forEach(player => {
-        if (player.cardNumber) count++;
+        if (player.selectedCardId && player.isCardConfirmed) count++;
     });
     return count;
 }

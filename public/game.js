@@ -291,8 +291,8 @@ function confirmPreviewCard() {
         // Notify server
         if (ws && ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({
-                type: 'join_game',
-                cardNumber: selectedCardId,
+                type: 'confirm_card',
+                cardId: selectedCardId,
                 stake: currentStake
             }));
         }
