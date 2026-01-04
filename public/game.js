@@ -497,8 +497,7 @@ function handleWebSocketMessage(data) {
             if (data.timeLeft <= 0 && data.phase === 'game') {
                 handlePhaseChange({ phase: 'game' });
             } else if (data.timeLeft <= 0 && data.phase === 'selection') {
-                // If timer is 0 and we are still in selection, it means the transition is about to happen
-                // We can proactively show the game screen if a card is already selected
+                // Proactively show the game screen if a card is already selected
                 if (selectedCardId && cardConfirmed) {
                     handlePhaseChange({ phase: 'game' });
                 }

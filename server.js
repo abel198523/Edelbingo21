@@ -1067,8 +1067,20 @@ async function gameLoop() {
             // Start game even if only 1 player is confirmed
             if (confirmedPlayers >= 1) {
                 console.log('Starting game phase with', confirmedPlayers, 'players');
+                gameState.phase = 'game';
+                gameState.timeLeft = 0;
+                
+                broadcast({
+                    type: 'phase_change',
+                    phase: 'game'
+                });
+                
                 startGamePhase();
-                startNumberCalling();
+                
+                // Small delay before starting to call numbers
+                setTimeout(() => {
+                    startNumberCalling();
+                }, 2000);
             } else {
                 console.log('No players confirmed, restarting selection');
                 startSelectionPhase();
