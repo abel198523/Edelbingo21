@@ -154,7 +154,6 @@ async function loadProfile() {
 function initializeLandingScreen() {
     const landingScreen = document.getElementById('landing-screen');
     const selectionScreen = document.getElementById('selection-screen');
-    const gameScreen = document.getElementById('game-screen');
     const startBtn = document.getElementById('start-selection-btn');
     const stakeButtons = document.querySelectorAll('.stake-btn');
     
@@ -186,26 +185,11 @@ function initializeLandingScreen() {
             generateCardSelection();
         });
     }
-    
-    const confirmCardBtn = document.getElementById('confirm-card-btn');
-    if (confirmCardBtn) {
-        confirmCardBtn.addEventListener('click', async function() {
-            if (selectedCardId) {
-                const result = await handleCardConfirmation(selectedCardId);
-                if (result.success) {
-                    if (selectionScreen) selectionScreen.style.display = 'none';
-                    if (gameScreen) gameScreen.style.display = 'flex';
-                    renderPlayerCard(selectedCardId);
-                } else {
-                    alert(result.message || 'ካርድ ለማረጋገጥ አልተቻለም');
-                }
-            }
-        });
-    }
 }
 
 let selectedCardId = null;
 let previewCardId = null;
+let cardConfirmed = false;
 
 function generateCardSelection() {
     const grid = document.getElementById('card-selection-grid');
@@ -217,11 +201,18 @@ function generateCardSelection() {
         const cardElement = document.createElement('div');
         cardElement.className = 'card-number-btn';
         cardElement.dataset.cardId = cardId;
+        cardElement.id = `card-btn-${cardId}`;
         cardElement.textContent = cardId;
         
         cardElement.addEventListener('click', function() {
-            showCardPreview(cardId);
+            if (!cardConfirmed) {
+                showCardPreview(cardId);
+            }
         });
+        
+        if (cardConfirmed && cardId === selectedCardId) {
+            cardElement.classList.add('selected');
+        }
         
         grid.appendChild(cardElement);
     }
@@ -270,6 +261,7 @@ function hideCardPreview() {
 
 function confirmPreviewCard() {
     if (previewCardId) {
+        cardConfirmed = true;
         selectedCardId = previewCardId;
         
         document.querySelectorAll('.card-number-btn').forEach(btn => {
@@ -279,14 +271,18 @@ function confirmPreviewCard() {
             }
         });
         
-        const confirmBtn = document.getElementById('confirm-card-btn');
-        if (confirmBtn) {
-            confirmBtn.disabled = false;
-        }
-        
         const status = document.getElementById('confirmation-status');
         if (status) {
-            status.textContent = `ካርድ #${selectedCardId} ተመርጧል`;
+            status.textContent = `ካርድ #${selectedCardId} ተመርጧል! ጨዋታው እስኪጀምር ይጠብቁ...`;
+        }
+        
+        // Notify server
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({
+                type: 'join_game',
+                cardNumber: selectedCardId,
+                stake: currentStake
+            }));
         }
         
         hideCardPreview();
@@ -503,6 +499,7 @@ function handlePhaseChange(data) {
     const gameScreen = document.getElementById('game-screen');
     const selectionScreen = document.getElementById('selection-screen');
     const landingScreen = document.getElementById('landing-screen');
+    const profileScreen = document.getElementById('profile-screen');
     
     if (data.phase === 'selection') {
         // Clear previous game data
@@ -510,29 +507,37 @@ function handlePhaseChange(data) {
         clearMasterGrid();
         calledNumbersSet.clear();
         selectedCardId = null;
+        cardConfirmed = false;
         
         // Clear player card marks
         const playerCells = document.querySelectorAll('.player-card-cell');
         playerCells.forEach(cell => cell.classList.remove('called', 'marked'));
         
-        // If on game screen, go back to selection
-        if (gameScreen && gameScreen.style.display === 'flex') {
-            gameScreen.style.display = 'none';
-            if (selectionScreen) {
-                selectionScreen.style.display = 'flex';
+        // Ensure we are on selection screen
+        if (gameScreen) gameScreen.style.display = 'none';
+        if (landingScreen) landingScreen.style.display = 'none';
+        if (profileScreen) profileScreen.style.display = 'none';
+        if (selectionScreen) {
+            selectionScreen.style.display = 'flex';
+            generateCardSelection();
+            const status = document.getElementById('confirmation-status');
+            if (status) status.textContent = 'ካርድ ይምረጡ';
+        }
+    } else if (data.phase === 'game') {
+        // Game is starting - transition from selection to game for ALL players
+        if (selectionScreen) selectionScreen.style.display = 'none';
+        if (landingScreen) landingScreen.style.display = 'none';
+        if (profileScreen) profileScreen.style.display = 'none';
+        if (gameScreen) {
+            gameScreen.style.display = 'flex';
+            if (selectedCardId) {
+                renderPlayerCard(selectedCardId);
+            } else {
+                // For observers or late joiners
+                const cardContainer = document.getElementById('player-bingo-card');
+                if (cardContainer) cardContainer.innerHTML = '<div style="text-align:center; padding:20px; color:#aaa;">WATCHING ONLY</div>';
             }
         }
-        
-        // Always regenerate cards in selection screen
-        if (selectionScreen) {
-            generateCardSelection();
-        }
-        
-        // Reset confirm button
-        const confirmBtn = document.getElementById('confirm-card-btn');
-        if (confirmBtn) confirmBtn.disabled = true;
-    } else if (data.phase === 'game') {
-        // Game is starting
         renderMasterGrid();
     } else if (data.phase === 'winner') {
         if (data.winner) {
