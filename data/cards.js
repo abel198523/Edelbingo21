@@ -148,6 +148,19 @@ function validateBingo(cardId, calledNumbers) {
     
     if (diag1Complete || diag2Complete) return true;
     
+    // Check 4 corners
+    const topLeft = cardData[0][0];
+    const topRight = cardData[0][4];
+    const bottomLeft = cardData[4][0];
+    const bottomRight = cardData[4][4];
+    
+    if ((topLeft === 0 || calledSet.has(topLeft)) && 
+        (topRight === 0 || calledSet.has(topRight)) && 
+        (bottomLeft === 0 || calledSet.has(bottomLeft)) && 
+        (bottomRight === 0 || calledSet.has(bottomRight))) {
+        return true;
+    }
+    
     return false;
 }
 
