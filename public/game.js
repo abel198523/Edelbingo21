@@ -204,7 +204,9 @@ function generateCardSelection() {
         cardElement.id = `card-btn-${cardId}`;
         cardElement.textContent = cardId;
         
-        cardElement.onclick = function() {
+        // Use inline onclick for maximum reliability
+        cardElement.onclick = function(e) {
+            console.log('Card tapped:', cardId);
             if (!cardConfirmed) {
                 showCardPreview(cardId);
             }

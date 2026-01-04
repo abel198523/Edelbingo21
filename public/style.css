@@ -236,6 +236,14 @@ html, body {
     display: flex;
     align-items: center;
     justify-content: center;
+    user-select: none;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.card-number-btn:active {
+    background: rgba(255, 255, 255, 0.2);
+    transform: scale(0.95);
 }
 
 .card-number-btn:hover {
