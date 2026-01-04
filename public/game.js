@@ -492,6 +492,11 @@ function handleWebSocketMessage(data) {
         case 'timer_update':
             updateTimerDisplay(data.timeLeft);
             updatePhaseDisplay(data.phase);
+            
+            // Force transition if time is up and we receive game phase
+            if (data.timeLeft <= 0 && data.phase === 'game') {
+                handlePhaseChange({ phase: 'game' });
+            }
             break;
         case 'error':
             alert(data.error || 'ችግር ተፈጥሯል');

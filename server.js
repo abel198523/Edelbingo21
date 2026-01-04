@@ -1064,16 +1064,27 @@ async function gameLoop() {
         if (gameState.phase === 'selection') {
             const confirmedPlayers = getConfirmedPlayersCount();
             
+            // Start game even if only 1 player is confirmed
             if (confirmedPlayers >= 1) {
+                console.log('Starting game phase with', confirmedPlayers, 'players');
                 startGamePhase();
                 startNumberCalling();
             } else {
-                await startSelectionPhase();
+                console.log('No players confirmed, restarting selection');
+                startSelectionPhase();
             }
         } else if (gameState.phase === 'winner') {
-            await startSelectionPhase();
+            startSelectionPhase();
         }
     }
+}
+
+function getConfirmedPlayersCount() {
+    let count = 0;
+    players.forEach(player => {
+        if (player.cardNumber) count++;
+    });
+    return count;
 }
 
 wss.on('connection', (ws) => {
