@@ -83,15 +83,7 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
     if (isRegistered && miniAppUrlWithId) {
         // User is registered - show full menu
         bot.sendMessage(chatId, "እንኳን ደህና መጡ! ጨዋታውን ለመጀመር 'Play' የሚለውን ቁልፍ ይጫኑ።", {
-            reply_markup: {
-                keyboard: [
-                    [{ text: "📱 Register", request_contact: true }],
-                    [{ text: "▶️ Play", web_app: { url: miniAppUrlWithId } }],
-                    [{ text: "💰 Check Balance" }, { text: "💳 Deposit" }],
-                    [{ text: "💸 Withdraw" }]
-                ],
-                resize_keyboard: true
-            }
+            reply_markup: getMainKeyboard(telegramId)
         });
     } else {
         // User is not registered or no Mini App URL - show Register button
@@ -161,15 +153,7 @@ bot.on('contact', async (msg) => {
         console.log(`New user registered: ${telegramId} - ${phoneNumber}`);
         
         bot.sendMessage(chatId, "✅ በተሳካ ሁኔታ ተመዝግበዋል!\n\n🎁 10 ብር የእንኳን ደህና መጡ ቦነስ አግኝተዋል!\n\nአሁን 'Play' ን ይጫኑ!", {
-            reply_markup: {
-                keyboard: [
-                    [{ text: "📱 Register", request_contact: true }],
-                    [{ text: "▶️ Play", web_app: { url: miniAppUrlWithId } }],
-                    [{ text: "💰 Check Balance" }, { text: "💳 Deposit" }],
-                    [{ text: "💸 Withdraw" }]
-                ],
-                resize_keyboard: true
-            }
+            reply_markup: getMainKeyboard(telegramId)
         });
         
     } catch (error) {
