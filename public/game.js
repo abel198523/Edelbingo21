@@ -6,8 +6,95 @@ let isRegistered = false;
 document.addEventListener('DOMContentLoaded', function() {
     initializeUser();
     checkRegistrationAndProceed();
-    initializeBingoButton(); // Add this
+    initializeBingoButton();
+    initializeGlobalMenu();
 });
+
+function initializeGlobalMenu() {
+    const trigger = document.getElementById('menu-trigger');
+    const closeBtn = document.getElementById('close-menu');
+    const menu = document.getElementById('side-menu');
+    
+    if (trigger && menu) {
+        trigger.addEventListener('click', () => {
+            menu.classList.add('active');
+        });
+    }
+    
+    if (closeBtn && menu) {
+        closeBtn.addEventListener('click', () => {
+            menu.classList.remove('active');
+        });
+    }
+    
+    // Menu items navigation
+    const menuItems = document.querySelectorAll('.menu-item');
+    menuItems.forEach(item => {
+        item.addEventListener('click', function() {
+            const target = this.dataset.target;
+            if (!target) return;
+            
+            menu.classList.remove('active');
+            
+            // Re-use footer navigation logic for screen switching
+            const landingScreen = document.getElementById('landing-screen');
+            const selectionScreen = document.getElementById('selection-screen');
+            const profileScreen = document.getElementById('profile-screen');
+            const gameScreen = document.getElementById('game-screen');
+            
+            if (landingScreen) landingScreen.style.display = 'none';
+            if (selectionScreen) selectionScreen.style.display = 'none';
+            if (profileScreen) profileScreen.style.display = 'none';
+            if (gameScreen) gameScreen.style.display = 'none';
+            
+            if (target === 'profile') {
+                if (profileScreen) profileScreen.style.display = 'flex';
+                loadProfile();
+            } else if (target === 'wallet') {
+                if (landingScreen) landingScreen.style.display = 'flex';
+            }
+        });
+    });
+    
+    // Invite item
+    const inviteBtn = document.getElementById('menu-invite');
+    if (inviteBtn) {
+        inviteBtn.addEventListener('click', async () => {
+            if (menu) menu.classList.remove('active');
+            
+            // Fetch bot info to generate link
+            try {
+                // Since we're in Mini App, we can use Telegram.WebApp to show a message or just tell them how to invite
+                if (window.Telegram && window.Telegram.WebApp) {
+                    const tg = window.Telegram.WebApp;
+                    const botUsername = 'ChewatabingoBot'; // You can make this dynamic if needed
+                    const inviteLink = `https://t.me/${botUsername}?start=${currentUserId}`;
+                    
+                    tg.showPopup({
+                        title: 'ጓደኛ ይጋብዙ',
+                        message: `ሊንኩን ለጓደኞችዎ በመላክ ቦነስ ያግኙ!\n\n${inviteLink}`,
+                        buttons: [{type: 'close'}]
+                    });
+                    
+                    // Copy to clipboard
+                    const textArea = document.createElement("textarea");
+                    textArea.value = inviteLink;
+                    document.body.appendChild(textArea);
+                    textArea.select();
+                    try {
+                        document.execCommand('copy');
+                        tg.showAlert('ሊንኩ ተገልብጧል!');
+                    } catch (err) {
+                        console.error('Unable to copy', err);
+                    }
+                    document.body.removeChild(textArea);
+                }
+            } catch (error) {
+                console.error('Invite error:', error);
+            }
+        });
+    }
+}
 
 async function checkRegistrationAndProceed() {
     if (!currentUserId) {

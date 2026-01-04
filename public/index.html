@@ -8,13 +8,39 @@
 </head>
 <body>
     <div class="main-wrapper">
+        <!-- Universal Global Header -->
+        <div class="global-header">
+            <div class="header-content">
+                <div class="header-logo">ቃና BINGO</div>
+                <div class="header-menu-trigger" id="menu-trigger">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+            </div>
+            <!-- Side Menu -->
+            <div id="side-menu" class="side-menu">
+                <div class="menu-header">
+                    <span class="close-menu" id="close-menu">&times;</span>
+                </div>
+                <div class="menu-items">
+                    <div class="menu-item" data-target="profile">
+                        <span class="menu-icon">👤</span>
+                        <span class="menu-text">PROFILE</span>
+                    </div>
+                    <div class="menu-item" data-target="wallet">
+                        <span class="menu-icon">💰</span>
+                        <span class="menu-text">WALLET</span>
+                    </div>
+                    <div class="menu-item" id="menu-invite">
+                        <span class="menu-icon">🔗</span>
+                        <span class="menu-text">INVITE</span>
+                    </div>
+                </div>
+            </div>
+        </div>
         
         <div id="landing-screen">
-            <div class="welcome-box">
-                <h1>እንኳን ደህና መጡ</h1>
-                <h2>ወደ ችዋታቢንጎ</h2>
-                
-                <div class="stake-selection">
                     <p>የውርርድ መጠን ይምረጡ</p>
                     <button class="stake-btn active-stake" data-stake="10">Stake 10</button>
                     <button class="stake-btn" data-stake="20">Stake 20</button>
@@ -52,9 +78,9 @@
 
         <div id="selection-screen" style="display: none;">
             
-            <div class="selection-header">
+            <div class="selection-status-bar">
                 <div class="header-info">
-                    <span class="label">Main Wallet</span>
+                    <span class="label">Wallet</span>
                     <span class="value" id="main-wallet-value">0</span>
                 </div>
                 <div class="header-info">
@@ -158,15 +184,6 @@
 
         <div id="game-screen" style="display: none;">
             
-            <div class="game-top-bar">
-                <span class="close-btn">&times;</span>
-                <span class="game-title">Feta Bingo 🎱</span>
-                <span class="header-icons">
-                    <span class="dropdown-icon">&#8964;</span>
-                    <span class="menu-icon">&#8942;</span>
-                </span>
-            </div>
-
             <div class="game-stats-row">
                 <div class="stat-box">
                     <span class="stat-label">Players</span>
