@@ -511,7 +511,28 @@ html, body {
 }
 
 .bingo-action-bar {
-    padding: 15px;
+    padding: 10px;
+    display: flex;
+    justify-content: center;
+}
+
+.bingo-claim-btn {
+    width: auto;
+    min-width: 120px;
+    padding: 12px 30px;
+    font-size: 1em;
+    font-weight: 800;
+    color: #fff;
+    background: linear-gradient(135deg, #ff4757, #ff6b81);
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    box-shadow: 0 5px 15px rgba(255, 71, 87, 0.4);
+    transition: all 0.2s;
+}
+
+.bingo-claim-btn:active {
+    transform: scale(0.95);
 }
 
 .called-ball.primary.new-call {

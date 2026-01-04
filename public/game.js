@@ -562,10 +562,25 @@ function handlePhaseChange(data) {
             gameScreen.style.display = 'flex';
             if (selectedCardId) {
                 renderPlayerCard(selectedCardId);
+                // Update active tag with card ID
+                const activeTag = document.querySelector('.active-tag');
+                if (activeTag) {
+                    activeTag.textContent = `የእርስዎ ካርድ #${selectedCardId}`;
+                }
+                // Hide "Wait For Next game" if player is in game
+                const gameStatusBox = document.querySelector('.game-status-box');
+                if (gameStatusBox) {
+                    gameStatusBox.style.display = 'none';
+                }
             } else {
                 // For observers or late joiners
                 const cardContainer = document.getElementById('player-bingo-card');
                 if (cardContainer) cardContainer.innerHTML = '<div style="text-align:center; padding:20px; color:#aaa;">WATCHING ONLY</div>';
+                // Show "Wait For Next game" for observers
+                const gameStatusBox = document.querySelector('.game-status-box');
+                if (gameStatusBox) {
+                    gameStatusBox.style.display = 'flex';
+                }
             }
         }
         renderMasterGrid();
