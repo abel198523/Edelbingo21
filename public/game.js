@@ -206,6 +206,7 @@ function generateCardSelection() {
         cardElement.textContent = cardId;
         
         cardElement.onclick = function(e) {
+            if (this.classList.contains('taken')) return false;
             console.log('Card tapped:', cardId);
             if (!cardConfirmed) {
                 showCardPreview(cardId);
@@ -218,6 +219,22 @@ function generateCardSelection() {
         }
         
         grid.appendChild(cardElement);
+    }
+}
+
+function updateTakenCards(takenCards) {
+    takenCards.forEach(cardId => {
+        markCardAsTaken(cardId);
+    });
+}
+
+function markCardAsTaken(cardId) {
+    const btn = document.getElementById(`card-btn-${cardId}`);
+    if (btn) {
+        btn.classList.add('taken');
+        btn.style.opacity = '0.3';
+        btn.style.cursor = 'not-allowed';
+        btn.style.pointerEvents = 'none';
     }
 }
 
@@ -460,7 +477,10 @@ function handleWebSocketMessage(data) {
             updatePhaseDisplay(data.phase);
             renderMasterGrid();
             
-            // Update stats
+            // Handle taken cards
+            if (data.takenCards) {
+                updateTakenCards(data.takenCards);
+            }
             if (data.gameId) {
                 const stakeEl = document.getElementById('game-stake');
                 if (stakeEl) stakeEl.textContent = `${parseFloat(data.stake || 10).toFixed(2)}Br`;
@@ -517,6 +537,9 @@ function handleWebSocketMessage(data) {
             break;
         case 'bingo_rejected':
             showBingoError(data.error || 'ምንም የማሸነፊያ መስመር የልዎትም');
+            break;
+        case 'card_taken':
+            markCardAsTaken(data.cardId);
             break;
         default:
             console.log('Unknown message type:', data.type);

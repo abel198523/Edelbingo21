@@ -1144,7 +1144,10 @@ wss.on('connection', (ws) => {
         timeLeft: gameState.timeLeft,
         calledNumbers: gameState.calledNumbers,
         winner: gameState.winner,
-        gameId: currentGameId
+        gameId: currentGameId,
+        takenCards: Array.from(gameState.players.values())
+            .filter(p => p.isCardConfirmed && p.selectedCardId)
+            .map(p => p.selectedCardId)
     }));
     
     ws.on('message', async (message) => {
@@ -1315,6 +1318,12 @@ wss.on('connection', (ws) => {
                                 cardId: cardIdToConfirm,
                                 balance: player.balance
                             }));
+
+                            // Broadcast to all other players that this card is taken
+                            broadcast({
+                                type: 'card_taken',
+                                cardId: cardIdToConfirm
+                            });
                         }
                     }
                     break;
