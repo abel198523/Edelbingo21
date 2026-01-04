@@ -49,16 +49,31 @@ bot.getMe().then((botInfo) => {
 });
 
 // Handle the /start command
-bot.onText(/\/start/, async (msg) => {
+bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
     console.log('Received /start command from:', msg.from.id);
     const chatId = msg.chat.id;
     const telegramId = msg.from.id;
-    
+    const referralCode = match ? match[1] : null;
+
     // Check if user is already registered
     let isRegistered = false;
     try {
         const result = await pool.query('SELECT * FROM users WHERE telegram_id = $1', [telegramId]);
         isRegistered = result.rows.length > 0;
+        
+        // Handle referral if not registered and code provided
+        if (!isRegistered && referralCode) {
+            const referrerResult = await pool.query('SELECT id FROM users WHERE telegram_id = $1', [referralCode]);
+            if (referrerResult.rows.length > 0) {
+                const referrerId = referrerResult.rows[0].id;
+                // Store referral intent in state to use during registration
+                userStates.set(telegramId, { 
+                    action: 'register', 
+                    referredBy: referrerId 
+                });
+                console.log(`User ${telegramId} referred by ${referralCode}`);
+            }
+        }
     } catch (err) {
         console.error('Error checking user:', err);
     }
@@ -105,33 +120,44 @@ bot.on('contact', async (msg) => {
         
         if (existingUser.rows.length > 0) {
             bot.sendMessage(chatId, "እርስዎ ቀድሞ ተመዝግበዋል! 'Play' ን ይጫኑ።", {
-                reply_markup: {
-                    keyboard: [
-                        [{ text: "📱 Register", request_contact: true }],
-                        [{ text: "▶️ Play", web_app: { url: miniAppUrlWithId } }],
-                        [{ text: "💰 Check Balance" }, { text: "💳 Deposit" }],
-                        [{ text: "💸 Withdraw" }]
-                    ],
-                    resize_keyboard: true
-                }
+                reply_markup: getMainKeyboard(telegramId)
             });
             return;
         }
         
+        // Get referral info from state
+        const state = userStates.get(telegramId);
+        const referrerId = (state?.action === 'register' || state?.action === 'deposit') ? state.referredBy : null;
+
         // Register new user with 10 ETB bonus
         const username = msg.from.username || `Player_${telegramId}`;
         const userResult = await pool.query(
-            'INSERT INTO users (telegram_id, username, phone_number, is_registered) VALUES ($1, $2, $3, $4) RETURNING id',
-            [telegramId, username, phoneNumber, true]
+            'INSERT INTO users (telegram_id, username, phone_number, is_registered, referred_by) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+            [telegramId, username, phoneNumber, true, referrerId]
         );
         
-        // Create wallet with 10 ETB bonus
         const userId = userResult.rows[0].id;
+
+        // Create wallet with 10 ETB bonus
         await pool.query(
             'INSERT INTO wallets (user_id, balance) VALUES ($1, $2)',
             [userId, 10.00]
         );
+
+        // If referred, handle referral bonus
+        if (referrerId) {
+            const bonusAmount = 5.00;
+            await pool.query('INSERT INTO referrals (referrer_id, referred_id, bonus_amount) VALUES ($1, $2, $3)', [referrerId, userId, bonusAmount]);
+            await pool.query('UPDATE wallets SET balance = balance + $1 WHERE user_id = $2', [bonusAmount, referrerId]);
+            
+            // Notify referrer
+            const referrerInfo = await pool.query('SELECT telegram_id FROM users WHERE id = $1', [referrerId]);
+            if (referrerInfo.rows.length > 0) {
+                bot.sendMessage(referrerInfo.rows[0].telegram_id, `🎁 አዲስ ሰው በሊንክዎ ስለተመዘገበ የ ${bonusAmount} ብር ቦነስ አግኝተዋል!`);
+            }
+        }
         
+        userStates.delete(telegramId);
         console.log(`New user registered: ${telegramId} - ${phoneNumber}`);
         
         bot.sendMessage(chatId, "✅ በተሳካ ሁኔታ ተመዝግበዋል!\n\n🎁 10 ብር የእንኳን ደህና መጡ ቦነስ አግኝተዋል!\n\nአሁን 'Play' ን ይጫኑ!", {
@@ -188,12 +214,26 @@ function getMainKeyboard(telegramId) {
         keyboard: [
             [{ text: "📱 Register", request_contact: true }],
             [{ text: "▶️ Play", web_app: { url: miniAppUrlWithId } }],
-            [{ text: "💰 Check Balance" }, { text: "💳 Deposit" }],
-            [{ text: "💸 Withdraw" }]
+            [{ text: "💰 Check Balance" }, { text: "🔗 Referral Link" }],
+            [{ text: "💳 Deposit" }, { text: "💸 Withdraw" }]
         ],
         resize_keyboard: true
     };
 }
+
+// Handle Referral Link button
+bot.onText(/🔗 Referral Link/, async (msg) => {
+    const chatId = msg.chat.id;
+    const telegramId = msg.from.id;
+    const botInfo = await bot.getMe();
+    const referralLink = `https://t.me/${botInfo.username}?start=${telegramId}`;
+    
+    const message = `🎁 <b>የሪፈራል ፕሮግራም</b>\n\n` +
+                    `ይህንን ሊንክ ለጓደኞችዎ ይላኩ። በሊንክዎ ለሚመዘገብ ለእያንዳንዱ ሰው የ <b>5 ብር</b> ቦነስ ያገኛሉ!\n\n` +
+                    `🔗 የእርስዎ ሊንክ:\n<code>${referralLink}</code>`;
+    
+    bot.sendMessage(chatId, message, { parse_mode: 'HTML' });
+});
 
 // Helper to notify admin
 async function notifyAdmin(message) {
