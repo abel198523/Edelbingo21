@@ -216,6 +216,9 @@ function generateCardSelection() {
         
         if (cardConfirmed && cardId === selectedCardId) {
             cardElement.classList.add('selected');
+            cardElement.style.backgroundColor = '#00c8ff'; // Blue color for own selected card
+            cardElement.style.borderColor = '#00c8ff';
+            cardElement.style.color = 'white';
         }
         
         grid.appendChild(cardElement);
@@ -298,8 +301,18 @@ function confirmPreviewCard() {
         
         document.querySelectorAll('.card-number-btn').forEach(btn => {
             btn.classList.remove('selected');
+            // Reset inline styles for non-taken cards
+            if (!btn.classList.contains('taken')) {
+                btn.style.backgroundColor = '';
+                btn.style.borderColor = '';
+                btn.style.color = '';
+            }
+            
             if (parseInt(btn.dataset.cardId) === selectedCardId) {
                 btn.classList.add('selected');
+                btn.style.backgroundColor = '#00c8ff'; // Blue color for own selected card
+                btn.style.borderColor = '#00c8ff';
+                btn.style.color = 'white';
             }
         });
         
