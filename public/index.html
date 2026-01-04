@@ -138,45 +138,49 @@
 
         <div id="profile-screen" style="display: none;">
             <div class="profile-container">
-                <div class="profile-header">
-                    <h2>ፕሮፋይል</h2>
-                </div>
-                
-                <div class="profile-avatar">
-                    <div class="avatar-circle">
-                        <span id="profile-avatar-letter">?</span>
+                <div class="profile-card">
+                    <div class="profile-card-header">
+                        <div class="profile-avatar">
+                            <div class="avatar-circle">
+                                <span id="profile-avatar-letter">?</span>
+                            </div>
+                        </div>
+                        <h2 id="profile-username-header">---</h2>
+                        <p id="profile-id-sub">ID: ---</p>
                     </div>
-                </div>
-                
-                <div class="profile-info">
-                    <div class="profile-item">
-                        <span class="profile-label">ስም</span>
-                        <span class="profile-value" id="profile-username">---</span>
+                    
+                    <div class="profile-stats-grid">
+                        <div class="profile-stat-item">
+                            <span class="stat-icon">💰</span>
+                            <span class="stat-value" id="profile-balance">0.00 ETB</span>
+                            <span class="stat-label">Balance</span>
+                        </div>
+                        <div class="profile-stat-item">
+                            <span class="stat-icon">🎮</span>
+                            <span class="stat-value" id="profile-total-games">0</span>
+                            <span class="stat-label">Games</span>
+                        </div>
+                        <div class="profile-stat-item">
+                            <span class="stat-icon">🏆</span>
+                            <span class="stat-value" id="profile-wins">0</span>
+                            <span class="stat-label">Wins</span>
+                        </div>
                     </div>
-                    <div class="profile-item">
-                        <span class="profile-label">Telegram ID</span>
-                        <span class="profile-value" id="profile-telegram-id">---</span>
+
+                    <div class="profile-details-list">
+                        <div class="detail-item">
+                            <span class="detail-label">Telegram ID</span>
+                            <span class="detail-value" id="profile-telegram-id">---</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Phone</span>
+                            <span class="detail-value" id="profile-phone">---</span>
+                        </div>
                     </div>
-                    <div class="profile-item">
-                        <span class="profile-label">ስልክ ቁጥር</span>
-                        <span class="profile-value" id="profile-phone">---</span>
-                    </div>
-                    <div class="profile-item">
-                        <span class="profile-label">ቀሪ ሒሳብ</span>
-                        <span class="profile-value" id="profile-balance">0.00 ETB</span>
-                    </div>
-                    <div class="profile-item">
-                        <span class="profile-label">አጠቃላይ ጨዋታዎች</span>
-                        <span class="profile-value" id="profile-total-games">0</span>
-                    </div>
-                    <div class="profile-item">
-                        <span class="profile-label">አሸናፊ ጨዋታዎች</span>
-                        <span class="profile-value" id="profile-wins">0</span>
-                    </div>
-                </div>
-                
-                <div class="profile-actions">
-                    <button class="profile-btn" id="profile-refresh-btn">ዳግም ጫን</button>
+                    
+                    <button class="profile-refresh-btn" id="profile-refresh-btn">
+                        <span class="btn-icon">🔄</span> Refresh Profile
+                    </button>
                 </div>
             </div>
             
@@ -184,6 +188,75 @@
                 <div class="footer-btn" data-target="game">Game</div>
                 <div class="footer-btn" data-target="wallet">Wallet</div>
                 <div class="footer-btn active" data-target="profile">Profile</div>
+            </div>
+        </div>
+
+        <div id="wallet-screen" style="display: none;">
+            <div class="wallet-container">
+                <div class="wallet-card">
+                    <div class="wallet-header">
+                        <span class="wallet-icon">💳</span>
+                        <h2>Wallet Balance</h2>
+                    </div>
+                    <div class="wallet-balance-display">
+                        <span class="currency">ETB</span>
+                        <span id="wallet-balance-value" class="balance-amount">0.00</span>
+                    </div>
+                    
+                    <div class="wallet-actions">
+                        <button class="wallet-action-btn deposit" id="btn-deposit-telebirr">
+                            <span class="btn-icon">⚡</span> Deposit
+                        </button>
+                        <button class="wallet-action-btn withdraw" id="btn-withdraw">
+                            <span class="btn-icon">💸</span> Withdraw
+                        </button>
+                    </div>
+                </div>
+
+                <div class="transaction-section">
+                    <h3>Recent Transactions</h3>
+                    <div id="transaction-list" class="transaction-list">
+                        <div class="no-transactions">No transactions yet</div>
+                    </div>
+                </div>
+            </div>
+            <div class="selection-footer">
+                <div class="footer-btn" data-target="game">Game</div>
+                <div class="footer-btn active" data-target="wallet">Wallet</div>
+                <div class="footer-btn" data-target="profile">Profile</div>
+            </div>
+        </div>
+
+        <!-- Custom Toast Notification -->
+        <div id="custom-toast" class="custom-toast">
+            <div class="toast-content">
+                <span id="toast-message">Message here</span>
+            </div>
+        </div>
+
+        <!-- Invite Modal -->
+        <div id="invite-modal" class="invite-modal" style="display: none;">
+            <div class="invite-modal-content">
+                <button class="close-invite">&times;</button>
+                <div class="invite-header">
+                    <span class="invite-icon">🎁</span>
+                    <h2>Invite & Earn</h2>
+                    <p>Get 2 ETB for every friend you invite!</p>
+                </div>
+                <div class="invite-link-box">
+                    <input type="text" id="invite-link-input" readonly value="https://t.me/ChewatabingoBot?start=123">
+                    <button id="copy-invite-link" class="copy-btn">Copy</button>
+                </div>
+                <div class="invite-stats">
+                    <div class="invite-stat">
+                        <span class="val" id="total-referrals">0</span>
+                        <span class="lab">Referrals</span>
+                    </div>
+                    <div class="invite-stat">
+                        <span class="val" id="total-referral-earnings">0 ETB</span>
+                        <span class="lab">Earned</span>
+                    </div>
+                </div>
             </div>
         </div>
 
