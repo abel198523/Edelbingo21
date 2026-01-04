@@ -516,7 +516,7 @@ function handleWebSocketMessage(data) {
             alert(data.error || 'ችግር ተፈጥሯል');
             break;
         case 'bingo_rejected':
-            alert(data.error || 'ቢንጎ ትክክል አይደለም');
+            showBingoError(data.error || 'ምንም የማሸነፊያ መስመር የልዎትም');
             break;
         default:
             console.log('Unknown message type:', data.type);
@@ -589,6 +589,87 @@ function handlePhaseChange(data) {
             showWinnerDisplay(data.winner);
         }
     }
+}
+
+function showBingoError(message) {
+    let overlay = document.getElementById('bingo-error-overlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'bingo-error-overlay';
+        overlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 20000;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        `;
+        document.body.appendChild(overlay);
+    }
+
+    overlay.innerHTML = `
+        <div style="
+            background: #1c2235;
+            width: 85%;
+            max-width: 320px;
+            padding: 30px 20px;
+            border-radius: 24px;
+            border: 2px solid #ff4757;
+            text-align: center;
+            box-shadow: 0 0 40px rgba(255, 71, 87, 0.3);
+            animation: modalPop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        ">
+            <div style="
+                width: 60px;
+                height: 60px;
+                background: rgba(255, 71, 87, 0.1);
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                margin: 0 auto 20px;
+            ">
+                <span style="font-size: 30px; color: #ff4757;">⚠️</span>
+            </div>
+            <h2 style="color: #fff; margin-bottom: 10px; font-size: 1.4em;">ይቅርታ</h2>
+            <p style="color: #8890a6; line-height: 1.5; margin-bottom: 25px; font-size: 1.1em;">
+                ${message}
+            </p>
+            <button onclick="document.getElementById('bingo-error-overlay').style.display='none'" style="
+                background: #ff4757;
+                color: #fff;
+                border: none;
+                padding: 12px 40px;
+                border-radius: 12px;
+                font-weight: 800;
+                font-size: 1em;
+                cursor: pointer;
+                box-shadow: 0 5px 15px rgba(255, 71, 87, 0.4);
+                transition: transform 0.2s;
+            " onactive="this.style.transform='scale(0.95)'">እሺ</button>
+        </div>
+    `;
+    
+    // Add animation if not present
+    if (!document.getElementById('modal-animations')) {
+        const style = document.createElement('style');
+        style.id = 'modal-animations';
+        style.textContent = `
+            @keyframes modalPop {
+                from { opacity: 0; transform: scale(0.8); }
+                to { opacity: 1; transform: scale(1); }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    overlay.style.display = 'flex';
 }
 
 function showWinnerDisplay(winner) {
