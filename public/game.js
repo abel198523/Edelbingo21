@@ -204,11 +204,11 @@ function generateCardSelection() {
         cardElement.id = `card-btn-${cardId}`;
         cardElement.textContent = cardId;
         
-        cardElement.addEventListener('click', function() {
+        cardElement.onclick = function() {
             if (!cardConfirmed) {
                 showCardPreview(cardId);
             }
-        });
+        };
         
         if (cardConfirmed && cardId === selectedCardId) {
             cardElement.classList.add('selected');
