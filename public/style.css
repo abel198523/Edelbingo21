@@ -514,16 +514,85 @@ html, body {
     padding: 15px;
 }
 
-.bingo-claim-btn {
-    width: 100%;
-    background: var(--color-purple);
-    color: #fff;
-    border: none;
-    padding: 15px;
-    border-radius: 15px;
+.called-ball.primary.new-call {
+    animation: bounce 0.5s ease;
+}
+
+@keyframes bounce {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+}
+
+.player-card-container {
+    background: #1c2235;
+    border-radius: 12px;
+    padding: 10px;
+    margin-bottom: 15px;
+}
+
+.player-game-card {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 4px;
+}
+
+.player-card-cell {
+    background: #2a3142;
+    aspect-ratio: 1;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85em;
     font-weight: 800;
-    font-size: 1.2em;
-    box-shadow: var(--glow-purple);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.03);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.player-card-cell:hover {
+    background: #353d52;
+}
+
+.player-card-cell.marked {
+    background: var(--color-green);
+    color: #000;
+    box-shadow: 0 0 10px rgba(0, 217, 132, 0.3);
+}
+
+.player-card-cell.called {
+    border: 2px solid var(--color-blue);
+}
+
+.game-master-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    grid-template-rows: repeat(15, 1fr);
+    gap: 2px;
+    flex: 1;
+}
+
+.master-cell {
+    background: #1c2235;
+    border-radius: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.6em;
+    color: #444;
+    font-weight: 700;
+}
+
+.master-cell.called {
+    background: var(--color-green);
+    color: #000;
+}
+
+.master-cell.last-called {
+    background: var(--color-blue);
+    color: #fff;
+    box-shadow: 0 0 5px var(--color-blue);
 }
 
 
