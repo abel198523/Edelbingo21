@@ -109,10 +109,10 @@ html, body {
 
 .side-menu {
     position: fixed;
-    top: 0;
+    top: 60px; /* Start below header */
     right: -280px;
     width: 280px;
-    height: 100%;
+    height: calc(100% - 60px);
     background: #1a1a2e;
     z-index: 2000;
     transition: right 0.3s ease;
@@ -182,6 +182,7 @@ html, body {
     margin-bottom: 15px;
     box-shadow: var(--shadow-main);
     border: 1px solid var(--color-glass-border);
+    margin-top: 10px;
 }
 
 /* ================================================== */
@@ -252,11 +253,62 @@ html, body {
     transform: translateY(-2px);
 }
 
-.stake-btn.active-stake {
-    background: var(--color-purple);
+.stake-btn.soon {
+    position: relative;
+    opacity: 0.6;
+    cursor: not-allowed;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.stake-btn.soon::after {
+    content: 'SOON';
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: var(--color-red);
     color: white;
-    box-shadow: var(--glow-purple);
-    border-color: var(--color-purple);
+    font-size: 0.6em;
+    padding: 2px 5px;
+    border-radius: 4px;
+    font-weight: 800;
+}
+
+.welcome-box {
+    margin: 0 auto;
+    width: 90%;
+    max-width: 400px;
+    box-sizing: border-box;
+}
+
+/* Alignment fixes */
+#landing-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 80px 20px 20px 20px !important;
+    min-height: 100vh;
+}
+
+.welcome-box {
+    margin: 0 auto;
+}
+
+.card-selection-grid {
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    gap: 5px;
+    padding: 10px;
+    max-height: 60vh;
+}
+
+.game-stats-row {
+    margin-top: 10px;
+}
+
+.side-menu {
+    top: 60px; /* Start below header */
+    height: calc(100% - 60px);
 }
 
 .play-btn {
@@ -303,6 +355,7 @@ html, body {
     margin-bottom: 15px;
     box-shadow: var(--shadow-main);
     border: 1px solid var(--color-glass-border);
+    margin-top: 10px;
 }
 
 .header-info .label {
