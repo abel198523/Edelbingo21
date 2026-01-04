@@ -204,12 +204,12 @@ function generateCardSelection() {
         cardElement.id = `card-btn-${cardId}`;
         cardElement.textContent = cardId;
         
-        // Use inline onclick for maximum reliability
         cardElement.onclick = function(e) {
             console.log('Card tapped:', cardId);
             if (!cardConfirmed) {
                 showCardPreview(cardId);
             }
+            return false;
         };
         
         if (cardConfirmed && cardId === selectedCardId) {
@@ -221,15 +221,22 @@ function generateCardSelection() {
 }
 
 function showCardPreview(cardId) {
+    console.log('Showing preview for card:', cardId);
     previewCardId = cardId;
     const modal = document.getElementById('card-preview-modal');
     const previewGrid = document.getElementById('preview-card-grid');
     const previewTitle = document.getElementById('preview-card-title');
     
-    if (!modal || !previewGrid) return;
+    if (!modal || !previewGrid) {
+        console.error('Modal or grid not found');
+        return;
+    }
     
     const cardData = BINGO_CARDS[cardId];
-    if (!cardData) return;
+    if (!cardData) {
+        console.error('Card data not found for ID:', cardId);
+        return;
+    }
     
     previewTitle.textContent = `ካርድ #${cardId}`;
     previewGrid.innerHTML = '';
@@ -251,6 +258,8 @@ function showCardPreview(cardId) {
     });
     
     modal.style.display = 'flex';
+    modal.style.zIndex = '10000';
+    console.log('Modal display set to flex');
 }
 
 function hideCardPreview() {
