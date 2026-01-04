@@ -592,10 +592,10 @@ function handlePhaseChange(data) {
 }
 
 function showBingoError(message) {
-    let overlay = document.getElementById('bingo-error-overlay');
+    let overlay = document.getElementById('bingo-modal-overlay');
     if (!overlay) {
         overlay = document.createElement('div');
-        overlay.id = 'bingo-error-overlay';
+        overlay.id = 'bingo-modal-overlay';
         overlay.style.cssText = `
             position: fixed;
             top: 0;
@@ -641,7 +641,7 @@ function showBingoError(message) {
             <p style="color: #8890a6; line-height: 1.5; margin-bottom: 25px; font-size: 1.1em;">
                 ${message}
             </p>
-            <button onclick="document.getElementById('bingo-error-overlay').style.display='none'" style="
+            <button onclick="document.getElementById('bingo-modal-overlay').style.display='none'" style="
                 background: #ff4757;
                 color: #fff;
                 border: none;
@@ -673,8 +673,97 @@ function showBingoError(message) {
 }
 
 function showWinnerDisplay(winner) {
-    const message = `🎉 አሸናፊ: ${winner.username}\nካርድ: #${winner.cardId}${winner.prize ? '\nሽልማት: ' + winner.prize + ' ብር' : ''}`;
-    alert(message);
+    const isMe = winner.telegramId === currentUserId.toString();
+    
+    let overlay = document.getElementById('bingo-modal-overlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'bingo-modal-overlay';
+        overlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 20000;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        `;
+        document.body.appendChild(overlay);
+    }
+
+    const borderColor = isMe ? '#00d984' : '#a855f7';
+    const icon = isMe ? '🏆' : '🎉';
+    const title = isMe ? 'እንኳን ደስ አለዎት!' : 'አሸናፊ ተገኝቷል!';
+    const actionColor = isMe ? '#00d984' : '#a855f7';
+
+    overlay.innerHTML = `
+        <div style="
+            background: #1c2235;
+            width: 85%;
+            max-width: 320px;
+            padding: 30px 20px;
+            border-radius: 24px;
+            border: 2px solid ${borderColor};
+            text-align: center;
+            box-shadow: 0 0 40px ${borderColor}33;
+            animation: modalPop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        ">
+            <div style="
+                width: 70px;
+                height: 70px;
+                background: ${borderColor}1a;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                margin: 0 auto 20px;
+            ">
+                <span style="font-size: 35px;">${icon}</span>
+            </div>
+            <h2 style="color: #fff; margin-bottom: 10px; font-size: 1.5em;">${title}</h2>
+            <div style="color: #8890a6; line-height: 1.6; margin-bottom: 25px;">
+                <p style="font-size: 1.2em; color: #fff; font-weight: 800; margin-bottom: 5px;">${winner.username}</p>
+                <p>ካርድ: #${winner.cardId}</p>
+                ${winner.prize ? `<p style="color: ${isMe ? '#00d984' : '#fff'}; font-size: 1.3em; font-weight: 800; margin-top: 10px;">${winner.prize} ብር</p>` : ''}
+            </div>
+            <button onclick="document.getElementById('bingo-modal-overlay').style.display='none'" style="
+                background: ${actionColor};
+                color: #fff;
+                border: none;
+                padding: 12px 45px;
+                border-radius: 12px;
+                font-weight: 800;
+                font-size: 1.1em;
+                cursor: pointer;
+                box-shadow: 0 5px 15px ${actionColor}4d;
+                transition: transform 0.2s;
+            " onactive="this.style.transform='scale(0.95)'">እሺ</button>
+        </div>
+    `;
+
+    overlay.style.display = 'flex';
+
+    if (isMe && typeof confetti === 'function') {
+        const duration = 5 * 1000;
+        const animationEnd = Date.now() + duration;
+        const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 30000 };
+
+        const randomInRange = (min, max) => Math.random() * (max - min) + min;
+
+        const interval = setInterval(function() {
+            const timeLeft = animationEnd - Date.now();
+            if (timeLeft <= 0) return clearInterval(interval);
+
+            const particleCount = 50 * (timeLeft / duration);
+            confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } });
+            confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } });
+        }, 250);
+    }
 }
 
 function renderMasterGrid() {
