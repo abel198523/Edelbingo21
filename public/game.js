@@ -232,7 +232,10 @@ function markCardAsTaken(cardId) {
     const btn = document.getElementById(`card-btn-${cardId}`);
     if (btn) {
         btn.classList.add('taken');
-        btn.style.opacity = '0.3';
+        btn.style.backgroundColor = '#ff4d4d'; // Red color
+        btn.style.borderColor = '#ff4d4d';
+        btn.style.color = 'white';
+        btn.style.opacity = '0.6';
         btn.style.cursor = 'not-allowed';
         btn.style.pointerEvents = 'none';
     }
