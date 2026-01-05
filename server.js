@@ -2110,6 +2110,7 @@ app.post('/api/admin/deposits/:id/approve', async (req, res) => {
 app.post('/api/admin/deposits/:id/reject', async (req, res) => {
     try {
         const depositId = parseInt(req.params.id);
+        console.log(`Rejecting deposit ID: ${depositId}`);
         
         const deposit = await pool.query(
             'SELECT d.*, u.telegram_id as user_telegram_id FROM deposits d JOIN users u ON d.user_id = u.id WHERE d.id = $1',
@@ -2117,12 +2118,19 @@ app.post('/api/admin/deposits/:id/reject', async (req, res) => {
         );
         
         if (deposit.rows.length === 0) {
+            console.log(`Deposit ${depositId} not found`);
             return res.status(404).json({ error: 'Deposit not found' });
         }
         
         const d = deposit.rows[0];
         
+        if (d.status !== 'pending') {
+            console.log(`Deposit ${depositId} already processed (status: ${d.status})`);
+            return res.status(400).json({ error: 'Deposit already processed' });
+        }
+        
         await pool.query('UPDATE deposits SET status = $1 WHERE id = $2', ['rejected', depositId]);
+        console.log(`Successfully rejected deposit ${depositId}`);
         
         if (d.user_telegram_id && bot) {
             bot.sendMessage(d.user_telegram_id, 
@@ -2133,7 +2141,7 @@ app.post('/api/admin/deposits/:id/reject', async (req, res) => {
         res.json({ success: true });
     } catch (err) {
         console.error('Reject deposit error:', err);
-        res.status(500).json({ error: 'Failed to reject deposit' });
+        res.status(500).json({ error: 'Failed to reject deposit: ' + err.message });
     }
 });
 
@@ -2141,6 +2149,7 @@ app.post('/api/admin/deposits/:id/reject', async (req, res) => {
 app.post('/api/admin/withdrawals/:id/approve', async (req, res) => {
     try {
         const withdrawalId = parseInt(req.params.id);
+        console.log(`Approving withdrawal ID: ${withdrawalId}`);
         
         const withdrawal = await pool.query(
             'SELECT w.*, u.telegram_id as user_telegram_id FROM withdrawals w JOIN users u ON w.user_id = u.id WHERE w.id = $1',
@@ -2148,12 +2157,14 @@ app.post('/api/admin/withdrawals/:id/approve', async (req, res) => {
         );
         
         if (withdrawal.rows.length === 0) {
+            console.log(`Withdrawal ${withdrawalId} not found`);
             return res.status(404).json({ error: 'Withdrawal not found' });
         }
         
         const w = withdrawal.rows[0];
         
         if (w.status !== 'pending') {
+            console.log(`Withdrawal ${withdrawalId} already processed (status: ${w.status})`);
             return res.status(400).json({ error: 'Withdrawal already processed' });
         }
         
@@ -2163,20 +2174,34 @@ app.post('/api/admin/withdrawals/:id/approve', async (req, res) => {
         );
         
         if (parseFloat(balanceCheck.rows[0]?.balance || 0) < w.amount) {
+            console.log(`Insufficient balance for withdrawal ${withdrawalId}`);
             return res.status(400).json({ error: 'Insufficient balance' });
         }
         
-        await pool.query('UPDATE withdrawals SET status = $1, processed_at = NOW() WHERE id = $2', ['approved', withdrawalId]);
-        
-        await pool.query(
-            'UPDATE wallets SET balance = balance - $1, updated_at = NOW() WHERE user_id = $2',
-            [w.amount, w.user_id]
-        );
-        
-        await pool.query(
-            'INSERT INTO transactions (user_id, type, amount, description) VALUES ($1, $2, $3, $4)',
-            [w.user_id, 'withdrawal', w.amount, `Withdrawal to ${w.phone_number}`]
-        );
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            
+            await client.query('UPDATE withdrawals SET status = $1, processed_at = NOW() WHERE id = $2', ['approved', withdrawalId]);
+            
+            await client.query(
+                'UPDATE wallets SET balance = balance - $1, updated_at = NOW() WHERE user_id = $2',
+                [w.amount, w.user_id]
+            );
+            
+            await client.query(
+                'INSERT INTO transactions (user_id, type, amount, description) VALUES ($1, $2, $3, $4)',
+                [w.user_id, 'withdrawal', w.amount, `Withdrawal to ${w.phone_number}`]
+            );
+            
+            await client.query('COMMIT');
+            console.log(`Successfully approved withdrawal ${withdrawalId}`);
+        } catch (e) {
+            await client.query('ROLLBACK');
+            throw e;
+        } finally {
+            client.release();
+        }
         
         if (w.user_telegram_id && bot) {
             bot.sendMessage(w.user_telegram_id, 
@@ -2187,7 +2212,7 @@ app.post('/api/admin/withdrawals/:id/approve', async (req, res) => {
         res.json({ success: true });
     } catch (err) {
         console.error('Approve withdrawal error:', err);
-        res.status(500).json({ error: 'Failed to approve withdrawal' });
+        res.status(500).json({ error: 'Failed to approve withdrawal: ' + err.message });
     }
 });
 
@@ -2195,6 +2220,7 @@ app.post('/api/admin/withdrawals/:id/approve', async (req, res) => {
 app.post('/api/admin/withdrawals/:id/reject', async (req, res) => {
     try {
         const withdrawalId = parseInt(req.params.id);
+        console.log(`Rejecting withdrawal ID: ${withdrawalId}`);
         
         const withdrawal = await pool.query(
             'SELECT w.*, u.telegram_id as user_telegram_id FROM withdrawals w JOIN users u ON w.user_id = u.id WHERE w.id = $1',
@@ -2202,12 +2228,19 @@ app.post('/api/admin/withdrawals/:id/reject', async (req, res) => {
         );
         
         if (withdrawal.rows.length === 0) {
+            console.log(`Withdrawal ${withdrawalId} not found`);
             return res.status(404).json({ error: 'Withdrawal not found' });
         }
         
         const w = withdrawal.rows[0];
         
+        if (w.status !== 'pending') {
+            console.log(`Withdrawal ${withdrawalId} already processed (status: ${w.status})`);
+            return res.status(400).json({ error: 'Withdrawal already processed' });
+        }
+        
         await pool.query('UPDATE withdrawals SET status = $1, processed_at = NOW() WHERE id = $2', ['rejected', withdrawalId]);
+        console.log(`Successfully rejected withdrawal ${withdrawalId}`);
         
         if (w.user_telegram_id && bot) {
             bot.sendMessage(w.user_telegram_id, 
@@ -2218,7 +2251,7 @@ app.post('/api/admin/withdrawals/:id/reject', async (req, res) => {
         res.json({ success: true });
     } catch (err) {
         console.error('Reject withdrawal error:', err);
-        res.status(500).json({ error: 'Failed to reject withdrawal' });
+        res.status(500).json({ error: 'Failed to reject withdrawal: ' + err.message });
     }
 });
 
