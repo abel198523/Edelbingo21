@@ -367,17 +367,17 @@
                 for (const d of deposits) {
                     const statusClass = d.status === 'pending' ? 'status-pending' : d.status === 'confirmed' ? 'status-confirmed' : 'status-rejected';
                     html += `<tr>
-                        <td>\${d.id}</td>
-                        <td>\${d.username}</td>
-                        <td>\${d.amount} ብር</td>
-                        <td>\${d.payment_method}</td>
-                        <td>\${d.confirmation_code}</td>
-                        <td><span class="status \${statusClass}">\${d.status}</span></td>
+                        <td>${d.id}</td>
+                        <td>${d.username}</td>
+                        <td>${d.amount} ብር</td>
+                        <td>${d.payment_method}</td>
+                        <td>${d.confirmation_code}</td>
+                        <td><span class="status ${statusClass}">${d.status}</span></td>
                         <td>
-                            \${d.status === 'pending' ? \`
-                                <button class="btn btn-approve" onclick="approveDeposit(\${d.id})">ፈቅድ</button>
-                                <button class="btn btn-reject" onclick="rejectDeposit(\${d.id})">ውድቅ</button>
-                            \` : '-'}
+                            ${d.status === 'pending' ? `
+                                <button class="btn btn-approve" onclick="approveDeposit(${d.id})">ፈቅድ</button>
+                                <button class="btn btn-reject" onclick="rejectDeposit(${d.id})">ውድቅ</button>
+                            ` : '-'}
                         </td>
                     </tr>`;
                 }
@@ -403,17 +403,17 @@
                 for (const w of withdrawals) {
                     const statusClass = w.status === 'pending' ? 'status-pending' : w.status === 'approved' ? 'status-approved' : 'status-rejected';
                     html += `<tr>
-                        <td>\${w.id}</td>
-                        <td>\${w.username}</td>
-                        <td>\${w.amount} ብር</td>
-                        <td>\${w.phone_number}</td>
-                        <td>\${w.account_name}</td>
-                        <td><span class="status \${statusClass}">\${w.status}</span></td>
+                        <td>${w.id}</td>
+                        <td>${w.username}</td>
+                        <td>${w.amount} ብር</td>
+                        <td>${w.phone_number}</td>
+                        <td>${w.account_name}</td>
+                        <td><span class="status ${statusClass}">${w.status}</span></td>
                         <td>
-                            \${w.status === 'pending' ? \`
-                                <button class="btn btn-approve" onclick="approveWithdrawal(\${w.id})">ፈቅድ</button>
-                                <button class="btn btn-reject" onclick="rejectWithdrawal(\${w.id})">ውድቅ</button>
-                            \` : '-'}
+                            ${w.status === 'pending' ? `
+                                <button class="btn btn-approve" onclick="approveWithdrawal(${w.id})">ፈቅድ</button>
+                                <button class="btn btn-reject" onclick="rejectWithdrawal(${w.id})">ውድቅ</button>
+                            ` : '-'}
                         </td>
                     </tr>`;
                 }
@@ -424,30 +424,10 @@
             }
         }
         
-        async function loadUsers() {
-            try {
-                const response = await fetch('/api/admin/users');
-                const users = await response.json();
-                let html = `<table><tr><th>ID</th><th>ስም</th><th>ቀሪ ሒሳብ</th><th>ቀን</th></tr>`;
-                for (const u of users) {
-                    html += `<tr>
-                        <td>\${u.id}</td>
-                        <td>\${u.username}</td>
-                        <td>\${parseFloat(u.balance || 0).toFixed(2)} ብር</td>
-                        <td>\${new Date(u.created_at).toLocaleDateString('am-ET')}</td>
-                    </tr>`;
-                }
-                html += '</table>';
-                document.getElementById('usersTable').innerHTML = html;
-            } catch (err) {
-                document.getElementById('usersTable').innerHTML = '<div class="empty-state">Error loading users</div>';
-            }
-        }
-        
         async function approveDeposit(id) {
             if (!confirm('ይህን ዲፖዚት ለማፅደቅ እርግጠኛ ነዎት?')) return;
             try {
-                const res = await fetch(\`/api/admin/deposits/\${id}/approve\`, { method: 'POST' });
+                const res = await fetch(`/api/admin/deposits/${id}/approve`, { method: 'POST' });
                 if (res.ok) loadDeposits();
                 else alert('ስህተት ተፈጥሯል');
             } catch (err) { alert('Error: ' + err.message); }
@@ -456,7 +436,7 @@
         async function rejectDeposit(id) {
             if (!confirm('ይህን ዲፖዚት ውድቅ ለማድረግ እርግጠኛ ነዎት?')) return;
             try {
-                const res = await fetch(\`/api/admin/deposits/\${id}/reject\`, { method: 'POST' });
+                const res = await fetch(`/api/admin/deposits/${id}/reject`, { method: 'POST' });
                 if (res.ok) loadDeposits();
                 else alert('ስህተት ተፈጥሯል');
             } catch (err) { alert('Error: ' + err.message); }
@@ -465,7 +445,7 @@
         async function approveWithdrawal(id) {
             if (!confirm('ይህን ማውጣት ለማፅደቅ እርግጠኛ ነዎት?')) return;
             try {
-                const res = await fetch(\`/api/admin/withdrawals/\${id}/approve\`, { method: 'POST' });
+                const res = await fetch(`/api/admin/withdrawals/${id}/approve`, { method: 'POST' });
                 if (res.ok) loadWithdrawals();
                 else alert('ስህተት ተፈጥሯል');
             } catch (err) { alert('Error: ' + err.message); }
@@ -474,7 +454,7 @@
         async function rejectWithdrawal(id) {
             if (!confirm('ይህን ማውጣት ውድቅ ለማድረግ እርግጠኛ ነዎት?')) return;
             try {
-                const res = await fetch(\`/api/admin/withdrawals/\${id}/reject\`, { method: 'POST' });
+                const res = await fetch(`/api/admin/withdrawals/${id}/reject`, { method: 'POST' });
                 if (res.ok) loadWithdrawals();
                 else alert('ስህተት ተፈጥሯል');
             } catch (err) { alert('Error: ' + err.message); }
