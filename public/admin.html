@@ -403,6 +403,7 @@
         }
         
         async function loadData() {
+            console.log('loadData called');
             try {
                 const response = await fetch('/api/admin/stats');
                 const data = await response.json();
@@ -420,6 +421,8 @@
             loadUsers();
             loadTransactions();
         }
+
+        window.onload = loadData;
         
         async function loadDeposits() {
             try {
