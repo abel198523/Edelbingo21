@@ -305,49 +305,65 @@ bot.onText(/💸 Withdraw/, async (msg) => {
     const chatId = msg.chat.id;
     const telegramId = msg.from.id;
     
-    const eligibility = await checkWithdrawEligibility(telegramId);
-    
-    if (!eligibility.eligible) {
-        let message = '';
-        if (eligibility.reason === 'not_registered') {
-            message = '❌ እባክዎ መጀመሪያ ይመዝገቡ።';
-        } else if (eligibility.reason === 'insufficient_requirements') {
-            message = `❌ ገንዘብ ለማውጣት መስፈርቶችን አላሟሉም።\n\n` +
-                      `📊 የእርስዎ ሁኔታ:\n` +
-                      `• ጠቅላላ ዲፖዚት: ${eligibility.totalDepositAmount} ብር\n` +
-                      `• አሸናፊነቶች: ${eligibility.wins}\n\n` +
-                      `💡 መስፈርቶች:\n` +
-                      `• ቢያንስ 100 ብር ዲፖዚት\n` +
-                      `• ቢያንስ 2 ጊዜ ማሸነፍ`;
-        } else if (eligibility.reason === 'insufficient_deposit') {
-            message = `❌ ገንዘብ ለማውጣት ቢያንስ 100 ብር ዲፖዚት ማድረግ አለብዎ።\n\n` +
-                      `📊 የእርስዎ ሁኔታ:\n` +
-                      `• ጠቅላላ ዲፖዚት: ${eligibility.totalDepositAmount} ብር\n` +
-                      `• አሸናፊነቶች: ${eligibility.wins}`;
-        } else {
-            message = '❌ ይቅርታ፣ ስህተት ተፈጥሯል። እባክዎ እንደገና ይሞክሩ።';
+    try {
+        const balanceResult = await pool.query(
+            'SELECT w.balance FROM users u JOIN wallets w ON u.id = w.user_id WHERE u.telegram_id = $1',
+            [telegramId]
+        );
+        
+        if (balanceResult.rows.length === 0) {
+            await bot.sendMessage(chatId, '❌ እባክዎ መጀመሪያ ይመዝገቡ።');
+            return;
+        }
+
+        const balance = parseFloat(balanceResult.rows[0].balance);
+
+        if (balance < 100) {
+            await bot.sendMessage(chatId, `❌ በቂ ሒሳብ የለም። ገንዘብ ለማውጣት ቢያንስ 100 ብር ሊኖርዎት ይገባል።\n\n💰 የእርስዎ ቀሪ ሒሳብ: ${balance.toFixed(2)} ብር`);
+            return;
+        }
+
+        const eligibility = await checkWithdrawEligibility(telegramId);
+        
+        if (!eligibility.eligible) {
+            let message = '';
+            if (eligibility.reason === 'not_registered') {
+                message = '❌ እባክዎ መጀመሪያ ይመዝገቡ።';
+            } else if (eligibility.reason === 'insufficient_requirements') {
+                message = `❌ ገንዘብ ለማውጣት መስፈርቶችን አላሟሉም።\n\n` +
+                          `📊 የእርስዎ ሁኔታ:\n` +
+                          `• ጠቅላላ ዲፖዚት: ${eligibility.totalDepositAmount} ብር\n` +
+                          `• አሸናፊነቶች: ${eligibility.wins}\n\n` +
+                          `💡 መስፈርቶች:\n` +
+                          `• ቢያንስ 100 ብር ዲፖዚት\n` +
+                          `• ቢያንስ 2 ጊዜ ማሸነፍ`;
+            } else if (eligibility.reason === 'insufficient_deposit') {
+                message = `❌ ገንዘብ ለማውጣት ቢያንስ 100 ብር ዲፖዚት ማድረግ አለብዎ።\n\n` +
+                          `📊 የእርስዎ ሁኔታ:\n` +
+                          `• ጠቅላላ ዲፖዚት: ${eligibility.totalDepositAmount} ብር\n` +
+                          `• አሸናፊነቶች: ${eligibility.wins}`;
+            } else {
+                message = '❌ ይቅርታ፣ ስህተት ተፈጥሯል። እባክዎ እንደገና ይሞክሩ።';
+            }
+            
+            await bot.sendMessage(chatId, message, { reply_markup: getMainKeyboard(telegramId) });
+            return;
         }
         
-        await bot.sendMessage(chatId, message, { reply_markup: getMainKeyboard(telegramId) });
-        return;
+        userStates.set(telegramId, { 
+            action: 'withdraw', 
+            step: 'amount',
+            userId: eligibility.userId 
+        });
+        
+        await bot.sendMessage(chatId, 
+            `✅ መስፈርቶቹን አሟልተዋል!\n\n💰 ቀሪ ሒሳብ: ${balance.toFixed(2)} ብር\n\n💵 ማውጣት የሚፈልጉትን መጠን ያስገቡ:`,
+            { reply_markup: { keyboard: [[{ text: "❌ ሰርዝ" }]], resize_keyboard: true } }
+        );
+    } catch (error) {
+        console.error('Withdraw button error:', error);
+        await bot.sendMessage(chatId, '❌ ይቅርታ፣ ስህተት ተፈጥሯል። እባክዎ እንደገና ይሞክሩ።');
     }
-    
-    userStates.set(telegramId, { 
-        action: 'withdraw', 
-        step: 'amount',
-        userId: eligibility.userId 
-    });
-    
-    const balanceResult = await pool.query(
-        'SELECT w.balance FROM users u JOIN wallets w ON u.id = w.user_id WHERE u.telegram_id = $1',
-        [telegramId]
-    );
-    const balance = parseFloat(balanceResult.rows[0]?.balance || 0).toFixed(2);
-    
-    await bot.sendMessage(chatId, 
-        `✅ መስፈርቶቹን አሟልተዋል!\n\n💰 ቀሪ ሒሳብ: ${balance} ብር\n\n💵 ማውጣት የሚፈልጉትን መጠን ያስገቡ:`,
-        { reply_markup: { keyboard: [[{ text: "❌ ሰርዝ" }]], resize_keyboard: true } }
-    );
 });
 
 // Handle Deposit button
