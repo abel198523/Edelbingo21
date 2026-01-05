@@ -673,6 +673,15 @@ function handleWebSocketMessage(data) {
                 if (stakeEl) stakeEl.textContent = `${parseFloat(data.stake || 10).toFixed(2)}Br`;
             }
             
+            if (data.participantsCount !== undefined) {
+                const playerCount = document.getElementById('player-count');
+                if (playerCount) playerCount.textContent = data.participantsCount;
+            }
+            if (data.totalJackpot !== undefined) {
+                const prizePool = document.getElementById('prize-pool');
+                if (prizePool) prizePool.textContent = `${parseFloat(data.totalJackpot).toFixed(2)}Br`;
+            }
+
             if (data.calledNumbers && data.calledNumbers.length > 0) {
                 data.calledNumbers.forEach((num, index) => {
                     markCalledNumber(num);
@@ -704,6 +713,15 @@ function handleWebSocketMessage(data) {
             updateTimerDisplay(data.timeLeft);
             updatePhaseDisplay(data.phase);
             
+            if (data.participantsCount !== undefined) {
+                const playerCount = document.getElementById('player-count');
+                if (playerCount) playerCount.textContent = data.participantsCount;
+            }
+            if (data.totalJackpot !== undefined) {
+                const prizePool = document.getElementById('prize-pool');
+                if (prizePool) prizePool.textContent = `${parseFloat(data.totalJackpot).toFixed(2)}Br`;
+            }
+
             // Force transition if time is up and we receive game phase
             if (data.timeLeft <= 0 && data.phase === 'game') {
                 handlePhaseChange({ phase: 'game' });
@@ -718,6 +736,15 @@ function handleWebSocketMessage(data) {
             console.log('Phase changed:', data.phase);
             updatePhaseDisplay(data.phase);
             handlePhaseChange(data);
+            
+            if (data.participantsCount !== undefined) {
+                const playerCount = document.getElementById('player-count');
+                if (playerCount) playerCount.textContent = data.participantsCount;
+            }
+            if (data.totalJackpot !== undefined) {
+                const prizePool = document.getElementById('prize-pool');
+                if (prizePool) prizePool.textContent = `${parseFloat(data.totalJackpot).toFixed(2)}Br`;
+            }
             break;
         case 'error':
             alert(data.error || 'ችግር ተፈጥሯል');
