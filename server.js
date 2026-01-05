@@ -219,7 +219,7 @@ bot.onText(/🔗 Referral Link/, async (msg) => {
     bot.sendMessage(chatId, message, { parse_mode: 'HTML' });
 });
 
-// Helper to notify admin
+// Notify admin
 async function notifyAdmin(message) {
     if (ADMIN_CHAT_ID) {
         try {
@@ -227,6 +227,18 @@ async function notifyAdmin(message) {
         } catch (err) {
             console.error('Failed to notify admin:', err.message);
         }
+    }
+    
+    // Also notify any registered active admins
+    try {
+        const activeAdmins = await pool.query('SELECT telegram_id FROM admin_users WHERE is_active = true');
+        for (const admin of activeAdmins.rows) {
+            if (admin.telegram_id !== ADMIN_CHAT_ID) {
+                await bot.sendMessage(admin.telegram_id, message, { parse_mode: 'HTML' });
+            }
+        }
+    } catch (err) {
+        console.error('Failed to notify database admins:', err.message);
     }
 }
 
