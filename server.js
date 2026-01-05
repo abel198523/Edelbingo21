@@ -1584,6 +1584,61 @@ app.get('/api/profile/:telegramId', async (req, res) => {
 app.get('/api/wallet/:userId', async (req, res) => {
     try {
         const { userId } = req.params;
+        const tgId = parseInt(userId);
+        
+        const result = await pool.query(
+            'SELECT w.balance FROM users u JOIN wallets w ON u.id = w.user_id WHERE u.telegram_id = $1',
+            [tgId]
+        );
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({ balance: 0 });
+        }
+        
+        res.json({ balance: parseFloat(result.rows[0].balance).toFixed(2) });
+    } catch (err) {
+        console.error('Wallet balance API error:', err);
+        res.status(500).json({ error: 'Failed to fetch balance' });
+    }
+});
+
+app.get('/api/transactions/:userId', async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const tgId = parseInt(userId);
+        
+        const userResult = await pool.query('SELECT id FROM users WHERE telegram_id = $1', [tgId]);
+        if (userResult.rows.length === 0) {
+            return res.json({ transactions: [] });
+        }
+        
+        const dbUserId = userResult.rows[0].id;
+        
+        // Fetch combined history of deposits and withdrawals
+        const deposits = await pool.query(
+            "SELECT 'deposit' as type, amount, status, created_at FROM deposits WHERE user_id = $1 ORDER BY created_at DESC LIMIT 10",
+            [dbUserId]
+        );
+        
+        const withdrawals = await pool.query(
+            "SELECT 'withdrawal' as type, amount, status, created_at FROM withdrawals WHERE user_id = $1 ORDER BY created_at DESC LIMIT 10",
+            [dbUserId]
+        );
+        
+        const transactions = [...deposits.rows, ...withdrawals.rows]
+            .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+            .slice(0, 10);
+            
+        res.json({ transactions });
+    } catch (err) {
+        console.error('Transactions API error:', err);
+        res.status(500).json({ error: 'Failed to fetch transactions' });
+    }
+});
+
+app.get('/api/wallet-info/:userId', async (req, res) => {
+    try {
+        const { userId } = req.params;
         const telegramId = parseInt(userId) || 0;
         
         const result = await pool.query(
@@ -1609,7 +1664,7 @@ app.get('/api/wallet/:userId', async (req, res) => {
             stake: 10
         });
     } catch (err) {
-        console.error('Wallet error:', err);
+        console.error('Wallet info error:', err);
         res.status(500).json({ balance: 0, is_registered: false, stake: 10 });
     }
 });

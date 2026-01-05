@@ -3,11 +3,39 @@ let currentStake = 10;
 let ws = null;
 let isRegistered = false;
 
+function initializeWalletActions() {
+    const depositBtn = document.getElementById('btn-deposit-telebirr');
+    const withdrawBtn = document.getElementById('btn-withdraw');
+
+    if (depositBtn) {
+        depositBtn.addEventListener('click', () => {
+            if (window.Telegram && window.Telegram.WebApp) {
+                window.Telegram.WebApp.showAlert('ዲፖዚት ለማድረግ እባክዎ በቴሌግራም ቦቱ ውስጥ "💳 Deposit" የሚለውን ቁልፍ ይጠቀሙ።');
+                window.Telegram.WebApp.close();
+            } else {
+                alert('እባክዎ በቴሌግራም ቦቱ ውስጥ "💳 Deposit" የሚለውን ቁልፍ ይጠቀሙ።');
+            }
+        });
+    }
+
+    if (withdrawBtn) {
+        withdrawBtn.addEventListener('click', () => {
+            if (window.Telegram && window.Telegram.WebApp) {
+                window.Telegram.WebApp.showAlert('ገንዘብ ለማውጣት እባክዎ በቴሌግራም ቦቱ ውስጥ "💸 Withdraw" የሚለውን ቁልፍ ይጠቀሙ።');
+                window.Telegram.WebApp.close();
+            } else {
+                alert('እባክዎ በቴሌግራም ቦቱ ውስጥ "💸 Withdraw" የሚለውን ቁልፍ ይጠቀሙ።');
+            }
+        });
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     initializeUser();
     checkRegistrationAndProceed();
     initializeBingoButton();
     initializeGlobalMenu();
+    initializeWalletActions();
 });
 
 function initializeGlobalMenu() {
@@ -51,7 +79,9 @@ function initializeGlobalMenu() {
                 if (profileScreen) profileScreen.style.display = 'flex';
                 loadProfile();
             } else if (target === 'wallet') {
-                if (landingScreen) landingScreen.style.display = 'flex';
+                const walletScreen = document.getElementById('wallet-screen');
+                if (walletScreen) walletScreen.style.display = 'flex';
+                loadWallet();
             }
         });
     });
@@ -145,7 +175,9 @@ function initializeFooterNavigation() {
             if (target === 'game') {
                 if (landingScreen) landingScreen.style.display = 'flex';
             } else if (target === 'wallet') {
-                if (landingScreen) landingScreen.style.display = 'flex';
+                const walletScreen = document.getElementById('wallet-screen');
+                if (walletScreen) walletScreen.style.display = 'flex';
+                loadWallet();
             } else if (target === 'profile') {
                 if (profileScreen) profileScreen.style.display = 'flex';
                 loadProfile();
@@ -480,16 +512,51 @@ async function loadWallet() {
         const response = await fetch(`/api/wallet/${currentUserId}`);
         const data = await response.json();
         
-        updateWalletDisplay(data.balance);
+        const balance = data.balance || 0;
+        updateWalletDisplay(balance);
         
-        if (data.stake) {
-            currentStake = data.stake;
-        }
+        const profileBalance = document.getElementById('profile-balance');
+        if (profileBalance) profileBalance.textContent = `${parseFloat(balance).toFixed(2)} ETB`;
         
-        console.log('Wallet loaded:', data);
+        const walletBalanceDisplay = document.getElementById('wallet-balance-value');
+        if (walletBalanceDisplay) walletBalanceDisplay.textContent = parseFloat(balance).toFixed(2);
+        
+        loadTransactions();
     } catch (error) {
         console.error('Error loading wallet:', error);
         updateWalletDisplay(0);
+    }
+}
+
+async function loadTransactions() {
+    if (!currentUserId) return;
+    
+    try {
+        const response = await fetch(`/api/transactions/${currentUserId}`);
+        const data = await response.json();
+        
+        const list = document.getElementById('transaction-list');
+        if (!list) return;
+        
+        if (!data.transactions || data.transactions.length === 0) {
+            list.innerHTML = '<div class="no-transactions">No transactions yet</div>';
+            return;
+        }
+        
+        list.innerHTML = data.transactions.map(tx => `
+            <div class="transaction-item">
+                <div class="tx-info">
+                    <span class="tx-type ${tx.type}">${tx.type.toUpperCase()}</span>
+                    <span class="tx-date">${new Date(tx.created_at).toLocaleDateString()}</span>
+                </div>
+                <div class="tx-amount ${tx.type === 'deposit' ? 'positive' : 'negative'}">
+                    ${tx.type === 'deposit' ? '+' : '-'}${parseFloat(tx.amount).toFixed(2)}
+                </div>
+                <div class="tx-status ${tx.status}">${tx.status}</div>
+            </div>
+        `).join('');
+    } catch (error) {
+        console.error('Error loading transactions:', error);
     }
 }
 
