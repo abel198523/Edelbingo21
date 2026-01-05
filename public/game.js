@@ -36,6 +36,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeBingoButton();
     initializeGlobalMenu();
     initializeWalletActions();
+    checkAdminStatus();
 });
 
 function initializeGlobalMenu() {
@@ -82,9 +83,25 @@ function initializeGlobalMenu() {
                 const walletScreen = document.getElementById('wallet-screen');
                 if (walletScreen) walletScreen.style.display = 'flex';
                 loadWallet();
+            } else if (target === 'admin') {
+                window.location.href = '/admin.html';
             }
         });
     });
+}
+
+async function checkAdminStatus() {
+    if (!currentUserId) return;
+    try {
+        const response = await fetch(`/api/check-admin/${currentUserId}`);
+        const data = await response.json();
+        if (data.isAdmin) {
+            const adminItem = document.getElementById('admin-menu-item');
+            if (adminItem) adminItem.style.display = 'flex';
+        }
+    } catch (err) {
+        console.error('Error checking admin status:', err);
+    }
 }
 
 async function checkRegistrationAndProceed() {

@@ -1865,6 +1865,21 @@ app.get('/api/profile/:telegramId', async (req, res) => {
     }
 });
 
+app.get('/api/check-admin/:telegramId', async (req, res) => {
+    try {
+        const { telegramId } = req.params;
+        const result = await pool.query(
+            'SELECT * FROM admin_users WHERE telegram_id = $1 AND is_active = true',
+            [telegramId]
+        );
+        const isAdmin = result.rows.length > 0 || telegramId === process.env.ADMIN_CHAT_ID;
+        res.json({ isAdmin });
+    } catch (err) {
+        console.error('Check admin error:', err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 app.get('/api/wallet/:userId', async (req, res) => {
     try {
         const { userId } = req.params;
