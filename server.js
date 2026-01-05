@@ -2046,8 +2046,12 @@ app.get('/api/admin/transactions', async (req, res) => {
 
 // Approve deposit via API
 app.post('/api/admin/deposits/:id/approve', async (req, res) => {
+    console.log(`POST /api/admin/deposits/${req.params.id}/approve reached`);
     try {
         const depositId = parseInt(req.params.id);
+        if (isNaN(depositId)) {
+            return res.status(400).json({ error: 'Invalid deposit ID' });
+        }
         console.log(`Approving deposit ID: ${depositId}`);
         
         const deposit = await pool.query(

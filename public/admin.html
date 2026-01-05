@@ -487,32 +487,48 @@
         }
         
         async function approveDeposit(id) {
+            console.log('Approve clicked for ID:', id);
             if (!confirm('ይህን ዲፖዚት ለማፅደቅ እርግጠኛ ነዎት?')) return;
             
             try {
-                const response = await fetch(`/api/admin/deposits/${id}/approve`, { method: 'POST' });
+                const response = await fetch(`/api/admin/deposits/${id}/approve`, { 
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const result = await response.json();
+                console.log('Approve result:', result);
                 if (response.ok) {
+                    alert('ዲፖዚቱ ፀድቋል!');
                     loadData();
                 } else {
-                    alert('Error approving deposit');
+                    alert('ስህተት ተፈጥሯል: ' + (result.error || 'Unknown error'));
                 }
             } catch (err) {
-                alert('Error: ' + err.message);
+                console.error('Approve error:', err);
+                alert('የኔትወርክ ስህተት: ' + err.message);
             }
         }
         
         async function rejectDeposit(id) {
+            console.log('Reject clicked for ID:', id);
             if (!confirm('ይህን ዲፖዚት ውድቅ ለማድረግ እርግጠኛ ነዎት?')) return;
             
             try {
-                const response = await fetch(`/api/admin/deposits/${id}/reject`, { method: 'POST' });
+                const response = await fetch(`/api/admin/deposits/${id}/reject`, { 
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const result = await response.json();
+                console.log('Reject result:', result);
                 if (response.ok) {
+                    alert('ዲፖዚቱ ውድቅ ተደርጓል!');
                     loadData();
                 } else {
-                    alert('Error rejecting deposit');
+                    alert('ስህተት ተፈጥሯል: ' + (result.error || 'Unknown error'));
                 }
             } catch (err) {
-                alert('Error: ' + err.message);
+                console.error('Reject error:', err);
+                alert('የኔትወርክ ስህተት: ' + err.message);
             }
         }
         
