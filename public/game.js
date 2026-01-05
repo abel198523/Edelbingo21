@@ -55,45 +55,6 @@ function initializeGlobalMenu() {
             }
         });
     });
-    
-    // Invite item
-    const inviteBtn = document.getElementById('menu-invite');
-    if (inviteBtn) {
-        inviteBtn.addEventListener('click', async () => {
-            if (menu) menu.classList.remove('active');
-            
-            // Fetch bot info to generate link
-            try {
-                // Since we're in Mini App, we can use Telegram.WebApp to show a message or just tell them how to invite
-                if (window.Telegram && window.Telegram.WebApp) {
-                    const tg = window.Telegram.WebApp;
-                    const botUsername = 'ChewatabingoBot'; // You can make this dynamic if needed
-                    const inviteLink = `https://t.me/${botUsername}?start=${currentUserId}`;
-                    
-                    tg.showPopup({
-                        title: 'ጓደኛ ይጋብዙ',
-                        message: `ሊንኩን ለጓደኞችዎ በመላክ ቦነስ ያግኙ!\n\n${inviteLink}`,
-                        buttons: [{type: 'close'}]
-                    });
-                    
-                    // Copy to clipboard
-                    const textArea = document.createElement("textarea");
-                    textArea.value = inviteLink;
-                    document.body.appendChild(textArea);
-                    textArea.select();
-                    try {
-                        document.execCommand('copy');
-                        tg.showAlert('ሊንኩ ተገልብጧል!');
-                    } catch (err) {
-                        console.error('Unable to copy', err);
-                    }
-                    document.body.removeChild(textArea);
-                }
-            } catch (error) {
-                console.error('Invite error:', error);
-            }
-        });
-    }
 }
 
 async function checkRegistrationAndProceed() {
