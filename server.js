@@ -566,8 +566,8 @@ bot.on('message', async (msg) => {
     if (state.action === 'deposit') {
         if (state.step === 'amount') {
             const amount = parseFloat(text);
-            if (isNaN(amount) || amount <= 0) {
-                await bot.sendMessage(chatId, '❌ እባክዎ ትክክለኛ መጠን ያስገቡ።');
+            if (isNaN(amount) || amount < 20) {
+                await bot.sendMessage(chatId, '❌ ዝቅተኛው ዲፖዚት 20 ብር ነው። እባክዎ ከ20 ብር በላይ ያስገቡ።');
                 return;
             }
             
