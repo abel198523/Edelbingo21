@@ -2413,6 +2413,9 @@ async function startServer() {
         await db.initializeDatabase();
         console.log('Database initialized');
         
+        // Load game state from Redis on startup if possible
+        await loadGameStateFromRedis();
+        
         server.listen(PORT, '0.0.0.0', () => {
             console.log(`Server running on port ${PORT}`);
             console.log('WebSocket server ready');
