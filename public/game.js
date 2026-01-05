@@ -656,7 +656,32 @@ function initializeWebSocket() {
     };
 }
 
+function updateTimerDisplay(seconds) {
+    const timerElement = document.getElementById('time-left');
+    if (timerElement) {
+        timerElement.textContent = `${seconds}s`;
+    }
+}
+
+function updateGameStats(data) {
+    if (data.participantsCount !== undefined) {
+        const playerCount = document.getElementById('player-count');
+        if (playerCount) playerCount.textContent = data.participantsCount;
+    }
+    if (data.totalJackpot !== undefined) {
+        const prizePool = document.getElementById('prize-pool');
+        if (prizePool) prizePool.textContent = `${parseFloat(data.totalJackpot).toFixed(2)}Br`;
+    }
+    if (data.stake !== undefined) {
+        const gameStake = document.getElementById('game-stake');
+        if (gameStake) gameStake.textContent = `${parseFloat(data.stake).toFixed(2)}Br`;
+    }
+}
+
 function handleWebSocketMessage(data) {
+    // Update stats for any message that carries them
+    updateGameStats(data);
+
     switch (data.type) {
         case 'init':
             console.log('Game initialized:', data);

@@ -1199,6 +1199,12 @@ function callNumber() {
 }
 
 function broadcast(message) {
+    // Inject current game stats into every broadcast that needs it
+    if (['timer_update', 'phase_change', 'init', 'game_update'].includes(message.type)) {
+        message.participantsCount = getConfirmedPlayersCount();
+        message.totalJackpot = message.participantsCount * (gameState.stakeAmount || 10);
+        message.stake = gameState.stakeAmount || 10;
+    }
     const data = JSON.stringify(message);
     wss.clients.forEach(client => {
         if (client.readyState === WebSocket.OPEN) {
