@@ -87,7 +87,7 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
         });
     } else {
         // User is not registered or no Mini App URL - show Register button
-        bot.sendMessage(chatId, "እንኳን ደህና መጡ ወደ ችዋታቢንጎ! 🎉\n\nለመመዝገብ እና 20 ብር ቦነስ ለማግኘት ስልክ ቁጥርዎን ያጋሩ።", {
+        bot.sendMessage(chatId, "እንኳን ደህና መጡ ወደ ROYAL BINGO! 🎉\n\nለመመዝገብ እና 20 ብር ቦነስ ለማግኘት ስልክ ቁጥርዎን ያጋሩ።", {
             reply_markup: {
                 keyboard: [
                     [{ text: "📱 Register", request_contact: true }]

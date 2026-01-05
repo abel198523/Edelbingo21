@@ -1,7 +1,7 @@
-# Chewatabingo - Telegram Bingo Game
+# ROYAL BINGO - Telegram Bingo Game
 
 ## Overview
-Chewatabingo is a real-time Bingo game built as a Telegram Mini App with integrated payment system (deposits/withdrawals) and admin panel.
+ROYAL BINGO is a real-time Bingo game built as a Telegram Mini App with integrated payment system (deposits/withdrawals) and admin panel.
 
 ## Recent Changes (December 2024)
 - Added Withdrawal functionality with eligibility requirements (1+ deposit, 2+ wins)
@@ -9,6 +9,7 @@ Chewatabingo is a real-time Bingo game built as a Telegram Mini App with integra
 - Created Admin notification system for all transactions
 - Built Admin Panel web interface for transaction management
 - Added new database tables: deposits, withdrawals, admin_users
+- Renamed project to ROYAL BINGO
 
 ## Project Architecture
 
