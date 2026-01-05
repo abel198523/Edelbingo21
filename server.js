@@ -965,6 +965,8 @@ bot.on('callback_query', async (callbackQuery) => {
     const adminTelegramId = callbackQuery.from.id.toString();
     const chatId = message.chat.id;
 
+    console.log(`Callback query received: ${data} from ${adminTelegramId}`);
+
     try {
         // Verify admin
         const adminCheck = await pool.query(
@@ -972,7 +974,10 @@ bot.on('callback_query', async (callbackQuery) => {
             [adminTelegramId]
         );
         
-        if (adminCheck.rows.length === 0 && chatId.toString() !== ADMIN_CHAT_ID) {
+        const isAdmin = adminCheck.rows.length > 0 || adminTelegramId === ADMIN_CHAT_ID;
+        
+        if (!isAdmin) {
+            console.log(`Unauthorized admin attempt: ${adminTelegramId}`);
             await bot.answerCallbackQuery(callbackQuery.id, { text: '❌ የአድሚን መብት የለዎትም።', show_alert: true });
             return;
         }
@@ -980,6 +985,7 @@ bot.on('callback_query', async (callbackQuery) => {
         // Handle Deposit Approval via ID
         if (data.startsWith('approve_dep_id_')) {
             const depositId = data.replace('approve_dep_id_', '');
+            console.log(`Bot approving deposit: ${depositId}`);
             
             const deposit = await pool.query(
                 'SELECT d.*, u.telegram_id as user_telegram_id FROM deposits d JOIN users u ON d.user_id = u.id WHERE d.id = $1',
@@ -992,24 +998,37 @@ bot.on('callback_query', async (callbackQuery) => {
             }
 
             const d = deposit.rows[0];
-            await pool.query('UPDATE deposits SET status = $1, confirmed_at = NOW() WHERE id = $2', ['confirmed', depositId]);
-            await pool.query('UPDATE wallets SET balance = balance + $1, updated_at = NOW() WHERE user_id = $2', [d.amount, d.user_id]);
-            await pool.query('INSERT INTO transactions (user_id, type, amount, description) VALUES ($1, $2, $3, $4)', [d.user_id, 'deposit', d.amount, `Deposit via ${d.payment_method}`]);
+            const client = await pool.connect();
+            try {
+                await client.query('BEGIN');
+                await client.query('UPDATE deposits SET status = $1, confirmed_at = NOW() WHERE id = $2', ['confirmed', depositId]);
+                await client.query('UPDATE wallets SET balance = balance + $1, updated_at = NOW() WHERE user_id = $2', [d.amount, d.user_id]);
+                await client.query('INSERT INTO transactions (user_id, type, amount, description) VALUES ($1, $2, $3, $4)', [d.user_id, 'deposit', d.amount, `Deposit via ${d.payment_method}`]);
+                await client.query('COMMIT');
+                
+                await bot.answerCallbackQuery(callbackQuery.id, { text: '✅ ዲፖዚቱ ፀድቋል!' });
+                await bot.editMessageText(message.text + '\n\n✅ <b>ተፈቅዷል (Approved)</b>', {
+                    chat_id: chatId,
+                    message_id: message.message_id,
+                    parse_mode: 'HTML'
+                });
 
-            await bot.editMessageText(message.text + '\n\n✅ <b>ተፈቅዷል (Approved)</b>', {
-                chat_id: chatId,
-                message_id: message.message_id,
-                parse_mode: 'HTML'
-            });
-
-            if (d.user_telegram_id) {
-                await bot.sendMessage(d.user_telegram_id, `✅ ዲፖዚትዎ ተረጋግጧል!\n\n💵 ${d.amount} ብር ወደ ሒሳብዎ ተጨምሯል ።`);
+                if (d.user_telegram_id) {
+                    await bot.sendMessage(d.user_telegram_id, `✅ ዲፖዚትዎ ተረጋግጧል!\n\n💵 ${d.amount} ብር ወደ ሒሳብዎ ተጨምሯል ።`);
+                }
+            } catch (e) {
+                await client.query('ROLLBACK');
+                throw e;
+            } finally {
+                client.release();
             }
         }
 
         // Handle Deposit Rejection via ID
         if (data.startsWith('reject_dep_id_')) {
             const depositId = data.replace('reject_dep_id_', '');
+            console.log(`Bot rejecting deposit: ${depositId}`);
+            
             const deposit = await pool.query('SELECT d.*, u.telegram_id as user_telegram_id FROM deposits d JOIN users u ON d.user_id = u.id WHERE d.id = $1', [depositId]);
             
             if (deposit.rows.length === 0 || deposit.rows[0].status !== 'pending') {
@@ -1020,6 +1039,7 @@ bot.on('callback_query', async (callbackQuery) => {
             const d = deposit.rows[0];
             await pool.query('UPDATE deposits SET status = $1 WHERE id = $2', ['rejected', depositId]);
 
+            await bot.answerCallbackQuery(callbackQuery.id, { text: '❌ ዲፖዚቱ ውድቅ ተደርጓል!' });
             await bot.editMessageText(message.text + '\n\n❌ <b>ውድቅ ተደርጓል (Rejected)</b>', {
                 chat_id: chatId,
                 message_id: message.message_id,
@@ -1034,10 +1054,12 @@ bot.on('callback_query', async (callbackQuery) => {
         // Handle Withdrawal Approval via ID
         if (data.startsWith('approve_with_id_')) {
             const withdrawalId = data.replace('approve_with_id_', '');
+            console.log(`Bot approving withdrawal: ${withdrawalId}`);
+            
             const withdrawal = await pool.query('SELECT w.*, u.telegram_id as user_telegram_id FROM withdrawals w JOIN users u ON w.user_id = u.id WHERE w.id = $1', [withdrawalId]);
             
             if (withdrawal.rows.length === 0 || withdrawal.rows[0].status !== 'pending') {
-                await bot.answerCallbackQuery(callbackQuery.id, { text: '❌ አልተገኘም።' });
+                await bot.answerCallbackQuery(callbackQuery.id, { text: '❌ አልተገኘም ወይም ቀድሞ ተፈጽሟል።' });
                 return;
             }
 
@@ -1049,24 +1071,37 @@ bot.on('callback_query', async (callbackQuery) => {
                 return;
             }
 
-            await pool.query('UPDATE withdrawals SET status = $1, processed_at = NOW() WHERE id = $2', ['approved', withdrawalId]);
-            await pool.query('UPDATE wallets SET balance = balance - $1, updated_at = NOW() WHERE user_id = $2', [w.amount, w.user_id]);
-            await pool.query('INSERT INTO transactions (user_id, type, amount, description) VALUES ($1, $2, $3, $4)', [w.user_id, 'withdrawal', w.amount, `Withdrawal to ${w.phone_number}`]);
+            const client = await pool.connect();
+            try {
+                await client.query('BEGIN');
+                await client.query('UPDATE withdrawals SET status = $1, processed_at = NOW() WHERE id = $2', ['approved', withdrawalId]);
+                await client.query('UPDATE wallets SET balance = balance - $1, updated_at = NOW() WHERE user_id = $2', [w.amount, w.user_id]);
+                await client.query('INSERT INTO transactions (user_id, type, amount, description) VALUES ($1, $2, $3, $4)', [w.user_id, 'withdrawal', w.amount, `Withdrawal to ${w.phone_number}`]);
+                await client.query('COMMIT');
 
-            await bot.editMessageText(message.text + '\n\n✅ <b>ተፈቅዷል (Approved)</b>', {
-                chat_id: chatId,
-                message_id: message.message_id,
-                parse_mode: 'HTML'
-            });
+                await bot.answerCallbackQuery(callbackQuery.id, { text: '✅ ማውጣቱ ፀድቋል!' });
+                await bot.editMessageText(message.text + '\n\n✅ <b>ተፈቅዷል (Approved)</b>', {
+                    chat_id: chatId,
+                    message_id: message.message_id,
+                    parse_mode: 'HTML'
+                });
 
-            if (w.user_telegram_id) {
-                await bot.sendMessage(w.user_telegram_id, `✅ የገንዘብ ማውጣት ጥያቄዎ ተፈቅዷል!\n\n💵 ${w.amount} ብር ወደ ${w.phone_number} ተልኳል።`);
+                if (w.user_telegram_id) {
+                    await bot.sendMessage(w.user_telegram_id, `✅ የገንዘብ ማውጣት ጥያቄዎ ተፈቅዷል!\n\n💵 ${w.amount} ብር ወደ ${w.phone_number} ተልኳል።`);
+                }
+            } catch (e) {
+                await client.query('ROLLBACK');
+                throw e;
+            } finally {
+                client.release();
             }
         }
 
         // Handle Withdrawal Rejection via ID
         if (data.startsWith('reject_with_id_')) {
             const withdrawalId = data.replace('reject_with_id_', '');
+            console.log(`Bot rejecting withdrawal: ${withdrawalId}`);
+            
             const withdrawal = await pool.query('SELECT w.*, u.telegram_id as user_telegram_id FROM withdrawals w JOIN users u ON w.user_id = u.id WHERE w.id = $1', [withdrawalId]);
             
             if (withdrawal.rows.length === 0 || withdrawal.rows[0].status !== 'pending') {
@@ -1077,6 +1112,7 @@ bot.on('callback_query', async (callbackQuery) => {
             const w = withdrawal.rows[0];
             await pool.query('UPDATE withdrawals SET status = $1, processed_at = NOW() WHERE id = $2', ['rejected', withdrawalId]);
 
+            await bot.answerCallbackQuery(callbackQuery.id, { text: '❌ ማውጣቱ ውድቅ ተደርጓል!' });
             await bot.editMessageText(message.text + '\n\n❌ <b>ውድቅ ተደርጓል (Rejected)</b>', {
                 chat_id: chatId,
                 message_id: message.message_id,
