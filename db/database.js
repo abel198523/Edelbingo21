@@ -1,12 +1,30 @@
 const { Pool } = require('pg');
+const Redis = require('ioredis');
 
+// PostgreSQL Connection Pool
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+    max: 20, // Connection pooling limit
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 2000,
 });
 
+// Redis Client for Live Sessions
+const redis = process.env.REDIS_URL ? new Redis(process.env.REDIS_URL, {
+    maxRetriesPerRequest: 3,
+    connectTimeout: 10000,
+}) : null;
+
+if (redis) {
+    redis.on('connect', () => console.log('Connected to Redis (Live Sessions)'));
+    redis.on('error', (err) => console.error('Redis connection error:', err));
+} else {
+    console.warn('REDIS_URL not found. Real-time game state will fallback to memory.');
+}
+
 pool.on('connect', () => {
-    console.log('Connected to PostgreSQL database');
+    console.log('Connected to PostgreSQL database (Persistent Data)');
 });
 
 pool.on('error', (err) => {
@@ -113,6 +131,7 @@ async function initializeDatabase() {
 
 module.exports = {
     pool,
+    redis,
     initializeDatabase,
     query: (text, params) => pool.query(text, params)
 };

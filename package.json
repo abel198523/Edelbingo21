@@ -23,6 +23,7 @@
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
     "express": "^4.22.1",
+    "ioredis": "^5.9.0",
     "jsonwebtoken": "^9.0.3",
     "node-telegram-bot-api": "^0.64.0",
     "pg": "^8.16.3",
