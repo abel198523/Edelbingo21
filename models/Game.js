@@ -63,18 +63,32 @@ class Game {
     }
 
     static async setWinner(gameId, userId, cardId, calledNumbers) {
+        const game = await this.findById(gameId);
+        if (!game) throw new Error('Game not found');
+        
+        const totalPot = parseFloat(game.total_pot || 0);
+        const winnerPrize = totalPot * 0.8;
+        const platformFee = totalPot * 0.2;
+
         const result = await db.query(
             `UPDATE games 
              SET winner_id = $1, winning_card = $2, called_numbers = $3, 
-                 status = 'completed', ended_at = CURRENT_TIMESTAMP
-             WHERE id = $4
+                 status = 'completed', ended_at = CURRENT_TIMESTAMP,
+                 prize_amount = $4, platform_fee = $5
+             WHERE id = $6
              RETURNING *`,
-            [userId, cardId, calledNumbers, gameId]
+            [userId, cardId, calledNumbers, winnerPrize, platformFee, gameId]
         );
         
         await db.query(
             `UPDATE game_participants SET is_winner = true WHERE game_id = $1 AND user_id = $2`,
             [gameId, userId]
+        );
+
+        // Update winner's wallet balance
+        await db.query(
+            `UPDATE wallets SET balance = balance + $1 WHERE user_id = $2`,
+            [winnerPrize, userId]
         );
         
         return result.rows[0];
