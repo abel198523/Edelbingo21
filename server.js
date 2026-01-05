@@ -1007,7 +1007,9 @@ bot.on('callback_query', async (callbackQuery) => {
                 await client.query('COMMIT');
                 
                 await bot.answerCallbackQuery(callbackQuery.id, { text: '✅ ዲፖዚቱ ፀድቋል!' });
-                await bot.editMessageText(message.text + '\n\n✅ <b>ተፈቅዷል (Approved)</b>', {
+                
+                const formattedText = message.text.replace(/💳 ዲፖዚት ጥያቄ/g, '✅ <b>ዲፖዚት ጥያቄ (ተፈቅዷል)</b>');
+                await bot.editMessageText(formattedText, {
                     chat_id: chatId,
                     message_id: message.message_id,
                     parse_mode: 'HTML'
@@ -1040,7 +1042,8 @@ bot.on('callback_query', async (callbackQuery) => {
             await pool.query('UPDATE deposits SET status = $1 WHERE id = $2', ['rejected', depositId]);
 
             await bot.answerCallbackQuery(callbackQuery.id, { text: '❌ ዲፖዚቱ ውድቅ ተደርጓል!' });
-            await bot.editMessageText(message.text + '\n\n❌ <b>ውድቅ ተደርጓል (Rejected)</b>', {
+            const formattedText = message.text.replace(/💳 ዲፖዚት ጥያቄ/g, '❌ <b>ዲፖዚት ጥያቄ (ውድቅ ተደርጓል)</b>');
+            await bot.editMessageText(formattedText, {
                 chat_id: chatId,
                 message_id: message.message_id,
                 parse_mode: 'HTML'
@@ -1080,7 +1083,8 @@ bot.on('callback_query', async (callbackQuery) => {
                 await client.query('COMMIT');
 
                 await bot.answerCallbackQuery(callbackQuery.id, { text: '✅ ማውጣቱ ፀድቋል!' });
-                await bot.editMessageText(message.text + '\n\n✅ <b>ተፈቅዷል (Approved)</b>', {
+                const formattedText = message.text.replace(/💸 ማውጣት ጥያቄ/g, '✅ <b>ማውጣት ጥያቄ (ተፈቅዷል)</b>');
+                await bot.editMessageText(formattedText, {
                     chat_id: chatId,
                     message_id: message.message_id,
                     parse_mode: 'HTML'
@@ -1113,7 +1117,8 @@ bot.on('callback_query', async (callbackQuery) => {
             await pool.query('UPDATE withdrawals SET status = $1, processed_at = NOW() WHERE id = $2', ['rejected', withdrawalId]);
 
             await bot.answerCallbackQuery(callbackQuery.id, { text: '❌ ማውጣቱ ውድቅ ተደርጓል!' });
-            await bot.editMessageText(message.text + '\n\n❌ <b>ውድቅ ተደርጓል (Rejected)</b>', {
+            const formattedText = message.text.replace(/💸 ማውጣት ጥያቄ/g, '❌ <b>ማውጣት ጥያቄ (ውድቅ ተደርጓል)</b>');
+            await bot.editMessageText(formattedText, {
                 chat_id: chatId,
                 message_id: message.message_id,
                 parse_mode: 'HTML'
