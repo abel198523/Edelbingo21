@@ -292,17 +292,6 @@
                 <p id="pendingWithdrawalsCount" style="color: #95a5a6; margin-top: 10px;">-</p>
             </div>
         </div>
-        
-        <!-- Other Info Section -->
-        <div class="section" style="margin-top: 20px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h2>👥 የተጠቃሚዎች ዝርዝር</h2>
-                <button class="btn" style="background: rgba(255,255,255,0.1)" onclick="loadUsers()">ሁሉንም አሳይ</button>
-            </div>
-            <div id="usersTable">
-                <div class="loading">Loading...</div>
-            </div>
-        </div>
     </div>
 
     <!-- Sub Screens -->
@@ -359,7 +348,6 @@
             } catch (err) {
                 console.error('Failed to load stats:', err);
             }
-            loadUsers();
         }
 
         window.onload = loadData;
