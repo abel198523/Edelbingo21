@@ -87,7 +87,7 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
         });
     } else {
         // User is not registered or no Mini App URL - show Register button
-        bot.sendMessage(chatId, "እንኳን ደህና መጡ ወደ ችዋታቢንጎ! 🎉\n\nለመመዝገብ እና 10 ብር ቦነስ ለማግኘት ስልክ ቁጥርዎን ያጋሩ።", {
+        bot.sendMessage(chatId, "እንኳን ደህና መጡ ወደ ችዋታቢንጎ! 🎉\n\nለመመዝገብ እና 20 ብር ቦነስ ለማግኘት ስልክ ቁጥርዎን ያጋሩ።", {
             reply_markup: {
                 keyboard: [
                     [{ text: "📱 Register", request_contact: true }]
@@ -121,7 +121,7 @@ bot.on('contact', async (msg) => {
         const state = userStates.get(telegramId);
         const referrerId = (state?.action === 'register' || state?.action === 'deposit') ? state.referredBy : null;
 
-        // Register new user with 10 ETB bonus
+        // Register new user with 20 ETB bonus
         const username = msg.from.username || `Player_${telegramId}`;
         const userResult = await pool.query(
             'INSERT INTO users (telegram_id, username, phone_number, is_registered, referred_by) VALUES ($1, $2, $3, $4, $5) RETURNING id',
@@ -130,10 +130,10 @@ bot.on('contact', async (msg) => {
         
         const userId = userResult.rows[0].id;
 
-        // Create wallet with 10 ETB bonus
+        // Create wallet with 20 ETB bonus
         await pool.query(
             'INSERT INTO wallets (user_id, balance) VALUES ($1, $2)',
-            [userId, 10.00]
+            [userId, 20.00]
         );
 
         // If referred, handle referral bonus
@@ -152,7 +152,7 @@ bot.on('contact', async (msg) => {
         userStates.delete(telegramId);
         console.log(`New user registered: ${telegramId} - ${phoneNumber}`);
         
-        bot.sendMessage(chatId, "✅ በተሳካ ሁኔታ ተመዝግበዋል!\n\n🎁 10 ብር የእንኳን ደህና መጡ ቦነስ አግኝተዋል!\n\nአሁን 'Play' ን ይጫኑ!", {
+        bot.sendMessage(chatId, "✅ በተሳካ ሁኔታ ተመዝግበዋል!\n\n🎁 20 ብር የእንኳን ደህና መጡ ቦነስ አግኝተዋል!\n\nአሁን 'Play' ን ይጫኑ!", {
             reply_markup: getMainKeyboard(telegramId)
         });
         
