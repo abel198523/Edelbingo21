@@ -1160,6 +1160,86 @@ let gameState = {
     stakeAmount: 10
 };
 
+/**
+ * Syncs critical game state to Redis for low-latency session management.
+ */
+async function syncGameStateToRedis() {
+    if (!db.redis) return;
+    try {
+        const stateToSync = {
+            phase: gameState.phase,
+            timeLeft: gameState.timeLeft,
+            stakeAmount: gameState.stakeAmount,
+            calledNumbers: gameState.calledNumbers,
+            currentGameId: currentGameId
+        };
+        await db.redis.set('royalbingo:live_state', JSON.stringify(stateToSync), 'EX', 3600);
+    } catch (err) {
+        console.error('Redis sync error:', err);
+    }
+}
+
+/**
+ * Recovers game state from Redis on startup.
+ */
+async function loadGameStateFromRedis() {
+    if (!db.redis) return;
+    try {
+        const cached = await db.redis.get('royalbingo:live_state');
+        if (cached) {
+            const parsed = JSON.parse(cached);
+            gameState.phase = parsed.phase;
+            gameState.timeLeft = parsed.timeLeft;
+            gameState.stakeAmount = parsed.stakeAmount;
+            gameState.calledNumbers = parsed.calledNumbers;
+            currentGameId = parsed.currentGameId;
+            console.log('Game state recovered from Redis');
+        }
+    } catch (err) {
+        console.error('Redis recovery error:', err);
+    }
+}
+
+/**
+ * Syncs critical game state to Redis for low-latency session management.
+ */
+async function syncGameStateToRedis() {
+    if (!db.redis) return;
+    try {
+        const stateToSync = {
+            phase: gameState.phase,
+            timeLeft: gameState.timeLeft,
+            stakeAmount: gameState.stakeAmount,
+            calledNumbers: gameState.calledNumbers,
+            currentGameId: currentGameId
+        };
+        await db.redis.set('royalbingo:live_state', JSON.stringify(stateToSync), 'EX', 3600);
+    } catch (err) {
+        console.error('Redis sync error:', err);
+    }
+}
+
+/**
+ * Recovers game state from Redis on startup.
+ */
+async function loadGameStateFromRedis() {
+    if (!db.redis) return;
+    try {
+        const cached = await db.redis.get('royalbingo:live_state');
+        if (cached) {
+            const parsed = JSON.parse(cached);
+            gameState.phase = parsed.phase;
+            gameState.timeLeft = parsed.timeLeft;
+            gameState.stakeAmount = parsed.stakeAmount;
+            gameState.calledNumbers = parsed.calledNumbers;
+            currentGameId = parsed.currentGameId;
+            console.log('Game state recovered from Redis');
+        }
+    } catch (err) {
+        console.error('Redis recovery error:', err);
+    }
+}
+
 let playerIdCounter = 0;
 
 function initializeMasterNumbers() {
@@ -1191,6 +1271,7 @@ function callNumber() {
     const randomIndex = Math.floor(Math.random() * uncalledNumbers.length);
     const calledNumber = uncalledNumbers[randomIndex];
     gameState.calledNumbers.push(calledNumber);
+    syncGameStateToRedis(); // Real-time sync to Redis
     
     return {
         number: calledNumber,
@@ -1368,6 +1449,7 @@ async function gameLoop() {
     }
     
     gameState.timeLeft--;
+    if (gameState.timeLeft % 5 === 0) syncGameStateToRedis(); // Periodically sync timer
     
     broadcast({
         type: 'timer_update',
