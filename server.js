@@ -244,25 +244,53 @@ async function checkWithdrawEligibility(telegramId) {
         
         const userId = userResult.rows[0].id;
         
-        const depositCount = await pool.query(
-            'SELECT COUNT(*) as count FROM deposits WHERE user_id = $1 AND status = $2',
+        // Check total confirmed deposits
+        const depositResult = await pool.query(
+            'SELECT COALESCE(SUM(amount), 0) as total_amount, COUNT(*) as count FROM deposits WHERE user_id = $1 AND status = $2',
             [userId, 'confirmed']
         );
         
+        const totalDepositAmount = parseFloat(depositResult.rows[0].total_amount);
+        const deposits = parseInt(depositResult.rows[0].count);
+
+        // Check total wins
         const winCount = await pool.query(
             'SELECT COUNT(*) as count FROM game_participants WHERE user_id = $1 AND is_winner = true',
             [userId]
         );
-        
-        const deposits = parseInt(depositCount.rows[0].count);
         const wins = parseInt(winCount.rows[0].count);
         
-        if (deposits < 1) {
-            return { eligible: false, reason: 'no_deposit', deposits, wins };
+        // Rule 1: Deposits > 100 ETB can withdraw directly
+        if (totalDepositAmount >= 100) {
+            return { eligible: true, deposits, wins, userId, type: 'depositor' };
         }
         
-        if (wins < 2) {
-            return { eligible: false, reason: 'not_enough_wins', deposits, wins };
+        // Rule 2: Bonus users (or < 100 ETB deposit) must have 100 ETB deposit AND 2 wins
+        if (totalDepositAmount < 100) {
+            if (totalDepositAmount < 100 && wins < 2) {
+                return { 
+                    eligible: false, 
+                    reason: 'insufficient_requirements', 
+                    deposits, 
+                    wins, 
+                    totalDepositAmount,
+                    requiredDeposit: 100,
+                    requiredWins: 2
+                };
+            }
+            // They have at least some deposit but maybe not enough? 
+            // The instruction says: "ምንም ዲፖዚት ያላረገ ሰው... ቢያንስ 100 ብር ዲፖዚት እና ሁለት ጨዋታ የአሸናፊነት ሂስትሪ ሊኖረው ይገባል"
+            // And: "ከመቶ ብር በላይ ዲፖዚት ሂስትሪ ያለው ሰው በቀጥታ ዊዝድሮው ያድርግ"
+            if (totalDepositAmount < 100) {
+                return { 
+                    eligible: false, 
+                    reason: 'insufficient_deposit', 
+                    deposits, 
+                    wins, 
+                    totalDepositAmount,
+                    requiredDeposit: 100
+                };
+            }
         }
         
         return { eligible: true, deposits, wins, userId };
@@ -283,10 +311,19 @@ bot.onText(/💸 Withdraw/, async (msg) => {
         let message = '';
         if (eligibility.reason === 'not_registered') {
             message = '❌ እባክዎ መጀመሪያ ይመዝገቡ።';
-        } else if (eligibility.reason === 'no_deposit') {
-            message = `❌ ገንዘብ ለማውጣት ቢያንስ አንድ ጊዜ ዲፖዚት ማድረግ አለብዎ።\n\n📊 የእርስዎ ሁኔታ:\n• ዲፖዚቶች: ${eligibility.deposits || 0}\n• አሸናፊነቶች: ${eligibility.wins || 0}\n\n💡 መስፈርቶች:\n• ቢያንስ 1 ዲፖዚት\n• ቢያንስ 2 አሸናፊነት`;
-        } else if (eligibility.reason === 'not_enough_wins') {
-            message = `❌ ገንዘብ ለማውጣት ቢያንስ 2 ጊዜ ማሸነፍ አለብዎ።\n\n📊 የእርስዎ ሁኔታ:\n• ዲፖዚቶች: ${eligibility.deposits}\n• አሸናፊነቶች: ${eligibility.wins}\n\n💡 መስፈርቶች:\n• ቢያንስ 1 ዲፖዚት\n• ቢያንስ 2 አሸናፊነት`;
+        } else if (eligibility.reason === 'insufficient_requirements') {
+            message = `❌ ገንዘብ ለማውጣት መስፈርቶችን አላሟሉም።\n\n` +
+                      `📊 የእርስዎ ሁኔታ:\n` +
+                      `• ጠቅላላ ዲፖዚት: ${eligibility.totalDepositAmount} ብር\n` +
+                      `• አሸናፊነቶች: ${eligibility.wins}\n\n` +
+                      `💡 መስፈርቶች:\n` +
+                      `• ቢያንስ 100 ብር ዲፖዚት\n` +
+                      `• ቢያንስ 2 ጊዜ ማሸነፍ`;
+        } else if (eligibility.reason === 'insufficient_deposit') {
+            message = `❌ ገንዘብ ለማውጣት ቢያንስ 100 ብር ዲፖዚት ማድረግ አለብዎ።\n\n` +
+                      `📊 የእርስዎ ሁኔታ:\n` +
+                      `• ጠቅላላ ዲፖዚት: ${eligibility.totalDepositAmount} ብር\n` +
+                      `• አሸናፊነቶች: ${eligibility.wins}`;
         } else {
             message = '❌ ይቅርታ፣ ስህተት ተፈጥሯል። እባክዎ እንደገና ይሞክሩ።';
         }
