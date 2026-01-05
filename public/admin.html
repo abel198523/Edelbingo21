@@ -47,6 +47,28 @@
             gap: 10px;
         }
 
+        .admin-back-btn {
+            display: block;
+            width: calc(100% - 40px);
+            margin: 10px 20px 20px;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            color: #fff;
+            text-decoration: none;
+            text-align: center;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .admin-back-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: #f39c12;
+            color: #f39c12;
+        }
+
         .main-content {
             margin-left: 260px;
             flex: 1;
@@ -306,6 +328,7 @@
         <div class="sidebar-header">
             <h1>🎯 <span>Bingo Admin</span></h1>
         </div>
+        <a href="/" class="admin-back-btn">← ወደ ጨዋታው ተመለስ</a>
         <button class="tab active" onclick="showTab(event, 'deposits')">💳 <span>ዲፖዚቶች</span></button>
         <button class="tab" onclick="showTab(event, 'withdrawals')">💸 <span>ማውጣቶች</span></button>
         <button class="tab" onclick="showTab(event, 'users')">👥 <span>ተጠቃሚዎች</span></button>
