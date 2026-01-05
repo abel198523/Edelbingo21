@@ -477,8 +477,14 @@
                 const response = await fetch('/api/admin/withdrawals');
                 const withdrawals = await response.json();
                 
+                const tableContainer = document.getElementById('withdrawalsTable');
+                if (!tableContainer) {
+                    console.error('withdrawalsTable element not found');
+                    return;
+                }
+                
                 if (withdrawals.length === 0) {
-                    document.getElementById('withdrawalsTable').innerHTML = '<div class="empty-state">ማውጣቶች የሉም</div>';
+                    tableContainer.innerHTML = '<div class="empty-state">ማውጣቶች የሉም</div>';
                     return;
                 }
                 
@@ -514,9 +520,11 @@
                     </tr>`;
                 }
                 html += '</table>';
-                document.getElementById('withdrawalsTable').innerHTML = html;
+                tableContainer.innerHTML = html;
             } catch (err) {
-                document.getElementById('withdrawalsTable').innerHTML = '<div class="empty-state">Error loading data</div>';
+                console.error('Withdrawals load error:', err);
+                const tableContainer = document.getElementById('withdrawalsTable');
+                if (tableContainer) tableContainer.innerHTML = '<div class="empty-state">Error loading data</div>';
             }
         }
         
