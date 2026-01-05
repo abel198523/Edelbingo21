@@ -2048,6 +2048,7 @@ app.get('/api/admin/transactions', async (req, res) => {
 app.post('/api/admin/deposits/:id/approve', async (req, res) => {
     try {
         const depositId = parseInt(req.params.id);
+        console.log(`Approving deposit ID: ${depositId}`);
         
         const deposit = await pool.query(
             'SELECT d.*, u.telegram_id as user_telegram_id FROM deposits d JOIN users u ON d.user_id = u.id WHERE d.id = $1',
@@ -2055,26 +2056,42 @@ app.post('/api/admin/deposits/:id/approve', async (req, res) => {
         );
         
         if (deposit.rows.length === 0) {
+            console.log(`Deposit ${depositId} not found`);
             return res.status(404).json({ error: 'Deposit not found' });
         }
         
         const d = deposit.rows[0];
         
         if (d.status !== 'pending') {
+            console.log(`Deposit ${depositId} already processed (status: ${d.status})`);
             return res.status(400).json({ error: 'Deposit already processed' });
         }
         
-        await pool.query('UPDATE deposits SET status = $1, confirmed_at = NOW() WHERE id = $2', ['confirmed', depositId]);
-        
-        await pool.query(
-            'UPDATE wallets SET balance = balance + $1, updated_at = NOW() WHERE user_id = $2',
-            [d.amount, d.user_id]
-        );
-        
-        await pool.query(
-            'INSERT INTO transactions (user_id, type, amount, description) VALUES ($1, $2, $3, $4)',
-            [d.user_id, 'deposit', d.amount, `Deposit via ${d.payment_method}`]
-        );
+        // Start a transaction to ensure atomicity
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            
+            await client.query('UPDATE deposits SET status = $1, confirmed_at = NOW() WHERE id = $2', ['confirmed', depositId]);
+            
+            await client.query(
+                'UPDATE wallets SET balance = balance + $1, updated_at = NOW() WHERE user_id = $2',
+                [d.amount, d.user_id]
+            );
+            
+            await client.query(
+                'INSERT INTO transactions (user_id, type, amount, description) VALUES ($1, $2, $3, $4)',
+                [d.user_id, 'deposit', d.amount, `Deposit via ${d.payment_method}`]
+            );
+            
+            await client.query('COMMIT');
+            console.log(`Successfully approved deposit ${depositId}`);
+        } catch (e) {
+            await client.query('ROLLBACK');
+            throw e;
+        } finally {
+            client.release();
+        }
         
         if (d.user_telegram_id && bot) {
             bot.sendMessage(d.user_telegram_id, 
@@ -2085,7 +2102,7 @@ app.post('/api/admin/deposits/:id/approve', async (req, res) => {
         res.json({ success: true });
     } catch (err) {
         console.error('Approve deposit error:', err);
-        res.status(500).json({ error: 'Failed to approve deposit' });
+        res.status(500).json({ error: 'Failed to approve deposit: ' + err.message });
     }
 });
 
