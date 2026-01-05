@@ -86,8 +86,42 @@ function initializeGlobalMenu() {
             } else if (target === 'admin') {
                 window.location.href = '/admin.html';
             }
+            updateBackButtonVisibility();
         });
     });
+
+    const globalBackBtn = document.getElementById('global-back-btn');
+    if (globalBackBtn) {
+        globalBackBtn.addEventListener('click', () => {
+            const screens = ['selection-screen', 'profile-screen', 'wallet-screen', 'game-screen'];
+            screens.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.display = 'none';
+            });
+            
+            const landingScreen = document.getElementById('landing-screen');
+            if (landingScreen) landingScreen.style.display = 'flex';
+            
+            const footerButtons = document.querySelectorAll('.footer-btn');
+            footerButtons.forEach(b => b.classList.remove('active'));
+            const gameBtn = document.querySelector('.footer-btn[data-target="game"]');
+            if (gameBtn) gameBtn.classList.add('active');
+            
+            updateBackButtonVisibility();
+        });
+    }
+}
+
+function updateBackButtonVisibility() {
+    const backBtn = document.getElementById('global-back-btn');
+    if (!backBtn) return;
+    
+    const landingScreen = document.getElementById('landing-screen');
+    if (landingScreen && landingScreen.style.display !== 'none') {
+        backBtn.style.display = 'none';
+    } else {
+        backBtn.style.display = 'block';
+    }
 }
 
 async function checkAdminStatus() {
@@ -199,6 +233,7 @@ function initializeFooterNavigation() {
                 if (profileScreen) profileScreen.style.display = 'flex';
                 loadProfile();
             }
+            updateBackButtonVisibility();
         });
     });
     
@@ -281,6 +316,7 @@ function initializeLandingScreen() {
             if (selectionScreen) selectionScreen.style.display = 'flex';
             
             generateCardSelection();
+            updateBackButtonVisibility();
         });
     }
 }

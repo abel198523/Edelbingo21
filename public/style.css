@@ -72,10 +72,27 @@ html, body {
     background: #161b2a;
     display: flex;
     align-items: center;
-    padding: 0 20px;
+    padding: 0 15px;
     z-index: 1000;
-    border-bottom: 2px solid var(--color-purple); /* Added purple accent */
+    border-bottom: 2px solid var(--color-purple);
     box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+}
+
+.back-button {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 1.5em;
+    cursor: pointer;
+    padding: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 10px;
+}
+
+.back-button:active {
+    opacity: 0.6;
 }
 
 .header-content {
