@@ -111,7 +111,7 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
                 reply_markup: getMainKeyboard(telegramId)
             });
         } else {
-            await bot.sendMessage(chatId, "እንኳን ደህና መጡ ወደ ROYAL BINGO! 🎉\n\nለመመዝገብ እና 20 ብር ቦነስ ለማግኘት ስልክ ቁጥርዎን ያጋሩ።", {
+            await bot.sendMessage(chatId, "እንኳን ደህና መጡ ወደ ROYAL BINGO! 🎉\n\nጨዋታውን ለመጀመር እባክዎ መጀመሪያ ይመዝገቡ።", {
                 reply_markup: {
                     keyboard: [
                         [{ text: "📱 Register", request_contact: true }]
