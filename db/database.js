@@ -1,26 +1,49 @@
 const { Pool } = require('pg');
 const Redis = require('ioredis');
+const { Redis: UpstashRedis } = require('@upstash/redis');
 
 // PostgreSQL Connection Pool
+// prioritized for external databases (Supabase, etc.)
 const pool = new Pool({
     connectionString: process.env.EXTERNAL_DATABASE_URL || process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false }, // Force SSL for external databases
-    max: 20, 
+    ssl: { rejectUnauthorized: false }, 
+    max: 10, // Reduced max connections for stability on free tiers
     idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 5000,
+    connectionTimeoutMillis: 10000, // Increased timeout for external latency
 });
 
-// Redis Client for Live Sessions
-const redis = process.env.REDIS_URL ? new Redis(process.env.REDIS_URL, {
-    maxRetriesPerRequest: 3,
-    connectTimeout: 10000,
-}) : null;
+// Redis Client logic with Upstash fallback support
+let redis = null;
+
+if (process.env.REDIS_URL) {
+    if (process.env.REDIS_URL.includes('upstash.io') && !process.env.REDIS_URL.startsWith('rediss://')) {
+        // Handle Upstash REST format if provided incorrectly by user
+        console.log('Detected Upstash REST config, using @upstash/redis client');
+        const urlMatch = process.env.REDIS_URL.match(/URL="(https:\/\/[^"]+)"/);
+        const tokenMatch = process.env.REDIS_URL.match(/TOKEN="([^"]+)"/);
+        
+        if (urlMatch && tokenMatch) {
+            redis = new UpstashRedis({
+                url: urlMatch[1],
+                token: tokenMatch[1],
+            });
+        }
+    } else {
+        // Standard ioredis connection
+        redis = new Redis(process.env.REDIS_URL, {
+            maxRetriesPerRequest: 3,
+            connectTimeout: 15000,
+        });
+    }
+}
 
 if (redis) {
-    redis.on('connect', () => console.log('Connected to Redis (Live Sessions)'));
-    redis.on('error', (err) => console.error('Redis connection error:', err));
+    console.log('Redis initialized (Live Sessions)');
+    if (typeof redis.on === 'function') {
+        redis.on('error', (err) => console.error('Redis connection error:', err));
+    }
 } else {
-    console.warn('REDIS_URL not found. Real-time game state will fallback to memory.');
+    console.warn('REDIS_URL not configured correctly. Real-time game state will fallback to memory.');
 }
 
 pool.on('connect', () => {
