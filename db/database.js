@@ -3,11 +3,11 @@ const Redis = require('ioredis');
 
 // PostgreSQL Connection Pool
 const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-    max: 20, // Connection pooling limit
+    connectionString: process.env.EXTERNAL_DATABASE_URL || process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false }, // Force SSL for external databases
+    max: 20, 
     idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 2000,
+    connectionTimeoutMillis: 5000,
 });
 
 // Redis Client for Live Sessions
