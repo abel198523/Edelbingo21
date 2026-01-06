@@ -27,18 +27,19 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Server Control"
+args = "Chewatabingo Server"
 
 [[workflows.workflow]]
-name = "Server Control"
+name = "Chewatabingo Server"
 author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "echo \"Application is disabled as per user request. Running on Render.\" && tail -f /dev/null"
+args = "node server.js"
+waitForPort = 5000
 
 [workflows.workflow.metadata]
-outputType = "console"
+outputType = "webview"
 
 [[ports]]
 localPort = 5000
