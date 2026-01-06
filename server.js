@@ -515,7 +515,9 @@ bot.onText(/❌ ሰርዝ/, async (msg) => {
 bot.on('message', async (msg) => {
     // Handle contact shared as a generic message (sometimes triggers here instead of 'contact' event)
     if (msg.contact) {
-        return handleRegistration(msg);
+        // The logic for registration is already handled by the bot.on('contact', ...) listener
+        // No need to call a non-existent handleRegistration function
+        return;
     }
 
     if (!msg.text || msg.text.startsWith('/') || 
