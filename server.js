@@ -32,9 +32,22 @@ const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const RENDER_SERVER_URL = process.env.RENDER_SERVER_URL;
 const MINI_APP_URL = process.env.MINI_APP_URL || (process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : null);
 
-// Always use polling mode for development
+// Use polling but handle conflicts gracefully
 const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, {
-    polling: true
+    polling: {
+        autoStart: true,
+        params: {
+            timeout: 10
+        }
+    }
+});
+
+bot.on('polling_error', (error) => {
+    if (error.code === 'ETELEGRAM' && error.message.includes('409 Conflict')) {
+        console.warn("Polling conflict detected. Another instance might be running.");
+    } else {
+        console.error("Polling error:", error.code, error.message);
+    }
 });
 
 bot.getMe().then((botInfo) => {
