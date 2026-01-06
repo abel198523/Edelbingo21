@@ -162,8 +162,8 @@ bot.on('contact', async (msg) => {
         console.log(`Attempting to register user: ${senderId}, Phone: ${phoneNumber}, Referrer: ${referrerId}`);
         
         const userResult = await pool.query(
-            'INSERT INTO users (telegram_id, username, phone_number, is_registered, referred_by) VALUES ($1, $2, $3, $4, $5) RETURNING id',
-            [senderId, username, phoneNumber, true, referrerId]
+            'INSERT INTO users (telegram_id, username, phone_number, is_registered) VALUES ($1, $2, $3, $4) RETURNING id',
+            [senderId, username, phoneNumber, true]
         );
         
         if (!userResult.rows || userResult.rows.length === 0) {
