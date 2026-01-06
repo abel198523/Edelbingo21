@@ -210,10 +210,11 @@ const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID;
 
 // Helper function to get main keyboard
 function getMainKeyboard(telegramId) {
-    const miniAppUrlWithId = MINI_APP_URL ? `${MINI_APP_URL}?tg_id=${telegramId}` : null;
+    // Ensure we are using the telegram ID for the mini app URL
+    const miniAppUrlWithId = MINI_APP_URL ? `${MINI_APP_URL}?tg_id=${telegramId}` : MINI_APP_URL;
+    
     return {
         keyboard: [
-            [{ text: "📱 Register", request_contact: true }],
             [{ text: "▶️ Play", web_app: { url: miniAppUrlWithId } }],
             [{ text: "💰 Check Balance" }, { text: "🔗 Referral Link" }],
             [{ text: "💳 Deposit" }, { text: "💸 Withdraw" }]
@@ -483,6 +484,11 @@ bot.onText(/❌ ሰርዝ/, async (msg) => {
 
 // Handle general text messages for conversation flow
 bot.on('message', async (msg) => {
+    // Handle contact shared as a generic message (sometimes triggers here instead of 'contact' event)
+    if (msg.contact) {
+        return handleRegistration(msg);
+    }
+
     if (!msg.text || msg.text.startsWith('/') || 
         msg.text.includes('💰') || msg.text.includes('💸') || 
         msg.text.includes('💳') || msg.text.includes('📱 Telebirr') || 
