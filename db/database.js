@@ -143,6 +143,14 @@ async function initializeDatabase() {
                 is_active BOOLEAN DEFAULT true,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
+
+            CREATE TABLE IF NOT EXISTS referrals (
+                id SERIAL PRIMARY KEY,
+                referrer_id INTEGER REFERENCES users(id),
+                referred_id INTEGER REFERENCES users(id),
+                bonus_amount DECIMAL(10, 2) DEFAULT 0.00,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
         `);
         console.log('Database tables initialized');
     } catch (err) {
