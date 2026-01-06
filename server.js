@@ -42,6 +42,20 @@ const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, {
     }
 });
 
+// Catch-all for any message to debug
+bot.on('message', (msg) => {
+    console.log('--- Received ANY message ---');
+    console.log('Text:', msg.text);
+    console.log('From:', msg.from.id);
+});
+
+// Explicitly delete webhook to ensure polling works
+bot.deleteWebHook().then(() => {
+    console.log("Webhook deleted, starting polling...");
+}).catch((err) => {
+    console.warn("Failed to delete webhook:", err.message);
+});
+
 bot.on('polling_error', (error) => {
     if (error.code === 'ETELEGRAM' && error.message.includes('409 Conflict')) {
         console.warn("Polling conflict detected. Another instance might be running.");
@@ -61,53 +75,55 @@ bot.getMe().then((botInfo) => {
     console.error("Failed to get bot info:", err.message);
 });
 
+// Catch-all for any message to debug
+bot.on('message', (msg) => {
+    console.log('--- Received ANY message ---');
+    console.log('Text:', msg.text);
+    console.log('From:', msg.from.id);
+});
+
 // Handle the /start command
 bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
-    console.log('Received /start command from:', msg.from.id);
+    console.log('--- Received /start command ---');
+    console.log('From User ID:', msg.from.id);
+    console.log('Chat ID:', msg.chat.id);
+    console.log('Username:', msg.from.username);
+    
     const chatId = msg.chat.id;
     const telegramId = msg.from.id;
     const referralCode = match ? match[1] : null;
 
-    // Check if user is already registered
-    let isRegistered = false;
     try {
+        // Simple immediate response to verify receipt
+        await bot.sendMessage(chatId, "እንኳን ደህና መጡ! ጥያቄዎን እያስተናገድኩ ነው...");
+        
+        // Check if user is already registered
+        let isRegistered = false;
         const result = await pool.query('SELECT * FROM users WHERE telegram_id = $1', [telegramId]);
         isRegistered = result.rows.length > 0;
         
-        // Handle referral if not registered and code provided
-        if (!isRegistered && referralCode) {
-            const referrerResult = await pool.query('SELECT id FROM users WHERE telegram_id = $1', [referralCode]);
-            if (referrerResult.rows.length > 0) {
-                const referrerId = referrerResult.rows[0].id;
-                // Store referral intent in state to use during registration
-                userStates.set(telegramId, { 
-                    action: 'register', 
-                    referredBy: referrerId 
-                });
-                console.log(`User ${telegramId} referred by ${referralCode}`);
-            }
+        console.log('User registration status:', isRegistered);
+
+        const miniAppUrlWithId = MINI_APP_URL ? `${MINI_APP_URL}?tg_id=${telegramId}` : null;
+        
+        if (isRegistered && miniAppUrlWithId) {
+            await bot.sendMessage(chatId, "እንኳን ደህና መጡ! ጨዋታውን ለመጀመር 'Play' የሚለውን ቁልፍ ይጫኑ።", {
+                reply_markup: getMainKeyboard(telegramId)
+            });
+        } else {
+            await bot.sendMessage(chatId, "እንኳን ደህና መጡ ወደ ROYAL BINGO! 🎉\n\nለመመዝገብ እና 20 ብር ቦነስ ለማግኘት ስልክ ቁጥርዎን ያጋሩ።", {
+                reply_markup: {
+                    keyboard: [
+                        [{ text: "📱 Register", request_contact: true }]
+                    ],
+                    resize_keyboard: true,
+                    one_time_keyboard: true
+                }
+            });
         }
     } catch (err) {
-        console.error('Error checking user:', err);
-    }
-    
-    const miniAppUrlWithId = MINI_APP_URL ? `${MINI_APP_URL}?tg_id=${telegramId}` : null;
-    
-    if (isRegistered && miniAppUrlWithId) {
-        // User is registered - show full menu
-        bot.sendMessage(chatId, "እንኳን ደህና መጡ! ጨዋታውን ለመጀመር 'Play' የሚለውን ቁልፍ ይጫኑ።", {
-            reply_markup: getMainKeyboard(telegramId)
-        });
-    } else {
-        // User is not registered or no Mini App URL - show Register button
-        bot.sendMessage(chatId, "እንኳን ደህና መጡ ወደ ROYAL BINGO! 🎉\n\nለመመዝገብ እና 20 ብር ቦነስ ለማግኘት ስልክ ቁጥርዎን ያጋሩ።", {
-            reply_markup: {
-                keyboard: [
-                    [{ text: "📱 Register", request_contact: true }]
-                ],
-                resize_keyboard: true
-            }
-        });
+        console.error('Error in /start command handler:', err);
+        await bot.sendMessage(chatId, "ይቅርታ፣ ችግር ተፈጥሯል። እባክዎ ጥቂት ቆይተው ይሞክሩ።");
     }
 });
 
