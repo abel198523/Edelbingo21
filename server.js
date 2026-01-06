@@ -100,34 +100,41 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
 
 // Handle contact sharing for registration
 bot.on('contact', async (msg) => {
+    console.log('Received contact message:', JSON.stringify(msg));
     const chatId = msg.chat.id;
     const contact = msg.contact;
-    const telegramId = contact.user_id;
+    
+    // Crucial: We must use the message sender's ID (msg.from.id) 
+    // to ensure the registration is linked to the correct user.
+    // Sometimes contact.user_id might be different or missing.
+    const senderId = msg.from.id;
     const phoneNumber = contact.phone_number;
-    const miniAppUrlWithId = MINI_APP_URL ? `${MINI_APP_URL}?tg_id=${telegramId}` : null;
+    
+    console.log(`Processing registration for Sender ID: ${senderId}, Phone: ${phoneNumber}, Chat ID: ${chatId}`);
     
     try {
         // Check if already registered
-        const existingUser = await pool.query('SELECT * FROM users WHERE telegram_id = $1', [telegramId]);
+        const existingUser = await pool.query('SELECT * FROM users WHERE telegram_id = $1', [senderId]);
         
         if (existingUser.rows.length > 0) {
+            console.log(`User ${senderId} already registered. Showing keyboard.`);
             bot.sendMessage(chatId, "እርስዎ ቀድሞ ተመዝግበዋል! 'Play' ን ይጫኑ።", {
-                reply_markup: getMainKeyboard(telegramId)
+                reply_markup: getMainKeyboard(senderId)
             });
             return;
         }
-        
-        // Get referral info from state
-        const state = userStates.get(telegramId);
-        const referrerId = (state?.action === 'register' || state?.action === 'deposit') ? state.referredBy : null;
+
+        // Get referral info from state using senderId
+        const state = userStates.get(senderId);
+        const referrerId = (state?.action === 'register') ? state.referredBy : null;
 
         // Register new user with 20 ETB bonus
-        const username = msg.from.username || `Player_${telegramId}`;
-        console.log(`Attempting to register user: ${telegramId}, Phone: ${phoneNumber}, Referrer: ${referrerId}`);
+        const username = msg.from.username || `Player_${senderId}`;
+        console.log(`Attempting to register user: ${senderId}, Phone: ${phoneNumber}, Referrer: ${referrerId}`);
         
         const userResult = await pool.query(
             'INSERT INTO users (telegram_id, username, phone_number, is_registered, referred_by) VALUES ($1, $2, $3, $4, $5) RETURNING id',
-            [telegramId, username, phoneNumber, true, referrerId]
+            [senderId, username, phoneNumber, true, referrerId]
         );
         
         if (!userResult.rows || userResult.rows.length === 0) {
@@ -144,25 +151,30 @@ bot.on('contact', async (msg) => {
         // If referred, handle referral bonus
         if (referrerId) {
             const bonusAmount = 2.00;
-            await pool.query('INSERT INTO referrals (referrer_id, referred_id, bonus_amount) VALUES ($1, $2, $3)', [referrerId, userId, bonusAmount]);
-            await pool.query('UPDATE wallets SET balance = balance + $1 WHERE user_id = $2', [bonusAmount, referrerId]);
-            
-            // Notify referrer
-            const referrerInfo = await pool.query('SELECT telegram_id FROM users WHERE id = $1', [referrerId]);
-            if (referrerInfo.rows.length > 0) {
-                bot.sendMessage(referrerInfo.rows[0].telegram_id, `🎁 አዲስ ሰው በሊንክዎ ስለተመዘገበ የ ${bonusAmount} ብር ቦነስ አግኝተዋል!`);
+            // Ensure referrals table exists and handle bonus
+            try {
+                await pool.query('INSERT INTO referrals (referrer_id, referred_id, bonus_amount) VALUES ($1, $2, $3)', [referrerId, userId, bonusAmount]);
+                await pool.query('UPDATE wallets SET balance = balance + $1 WHERE user_id = $2', [bonusAmount, referrerId]);
+                
+                // Notify referrer
+                const referrerInfo = await pool.query('SELECT telegram_id FROM users WHERE id = $1', [referrerId]);
+                if (referrerInfo.rows.length > 0) {
+                    bot.sendMessage(referrerInfo.rows[0].telegram_id, `🎁 አዲስ ሰው በሊንክዎ ስለተመዘገበ የ ${bonusAmount} ብር ቦነስ አግኝተዋል!`);
+                }
+            } catch (refErr) {
+                console.error('Referral bonus error:', refErr);
             }
         }
         
-        userStates.delete(telegramId);
-        console.log(`New user registered: ${telegramId} - ${phoneNumber}`);
+        userStates.delete(senderId);
+        console.log(`New user registered successfully: ${senderId} - ${phoneNumber}`);
         
         bot.sendMessage(chatId, "✅ በተሳካ ሁኔታ ተመዝግበዋል!\n\n🎁 20 ብር የእንኳን ደህና መጡ ቦነስ አግኝተዋል!\n\nአሁን 'Play' ን ይጫኑ!", {
-            reply_markup: getMainKeyboard(telegramId)
+            reply_markup: getMainKeyboard(senderId)
         });
         
     } catch (error) {
-        console.error('Registration error:', error);
+        console.error('Registration error details:', error);
         bot.sendMessage(chatId, "ይቅርታ፣ በመመዝገብ ላይ ችግር ተፈጥሯል። እባክዎ እንደገና ይሞክሩ።");
     }
 });
