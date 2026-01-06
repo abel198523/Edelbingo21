@@ -106,7 +106,7 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
 
         const miniAppUrlWithId = MINI_APP_URL ? `${MINI_APP_URL}?tg_id=${telegramId}` : null;
         
-        if (isRegistered && miniAppUrlWithId) {
+        if (isRegistered) {
             await bot.sendMessage(chatId, "እንኳን ደህና መጡ! ጨዋታውን ለመጀመር 'Play' የሚለውን ቁልፍ ይጫኑ።", {
                 reply_markup: getMainKeyboard(telegramId)
             });
