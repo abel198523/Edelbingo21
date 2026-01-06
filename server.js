@@ -123,11 +123,16 @@ bot.on('contact', async (msg) => {
 
         // Register new user with 20 ETB bonus
         const username = msg.from.username || `Player_${telegramId}`;
+        console.log(`Attempting to register user: ${telegramId}, Phone: ${phoneNumber}, Referrer: ${referrerId}`);
+        
         const userResult = await pool.query(
             'INSERT INTO users (telegram_id, username, phone_number, is_registered, referred_by) VALUES ($1, $2, $3, $4, $5) RETURNING id',
             [telegramId, username, phoneNumber, true, referrerId]
         );
         
+        if (!userResult.rows || userResult.rows.length === 0) {
+            throw new Error('User insertion failed');
+        }
         const userId = userResult.rows[0].id;
 
         // Create wallet with 20 ETB bonus

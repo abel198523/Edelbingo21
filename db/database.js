@@ -65,6 +65,7 @@ async function initializeDatabase() {
                 phone_number VARCHAR(20),
                 password_hash VARCHAR(255),
                 is_registered BOOLEAN DEFAULT false,
+                referred_by INTEGER,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 last_login TIMESTAMP,
                 is_active BOOLEAN DEFAULT true
