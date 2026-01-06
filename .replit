@@ -27,19 +27,20 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Chewatabingo Server"
+args = "Server Status"
 
 [[workflows.workflow]]
-name = "Chewatabingo Server"
+name = "Server Status"
 author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "node server.js"
-waitForPort = 5000
+args = """
+# Server disabled as per user request. No active workflow for this project on Replit.
+echo \"Server is disabled. Application is running on Render.\""""
 
 [workflows.workflow.metadata]
-outputType = "webview"
+outputType = "console"
 
 [[ports]]
 localPort = 5000
