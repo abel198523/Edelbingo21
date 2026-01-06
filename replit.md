@@ -51,13 +51,16 @@ ROYAL BINGO is a real-time Bingo game built as a Telegram Mini App with integrat
 - `/approve_withdraw [ID]` - Approve withdrawal
 - `/reject_withdraw [ID]` - Reject withdrawal
 
-## Environment Variables
-- `TELEGRAM_BOT_TOKEN` - Telegram Bot API token
-- `DATABASE_URL` - PostgreSQL connection string
-- `ADMIN_CHAT_ID` - Admin Telegram chat ID for notifications (optional)
+## Environment Variables (Render Deployment)
+To deploy on Render, set the following environment variables:
 
-## Admin Panel
-Access at `/admin.html` - Manage deposits, withdrawals, users, and transactions.
+- `TELEGRAM_BOT_TOKEN`: Your Telegram Bot API token.
+- `EXTERNAL_DATABASE_URL`: Your full PostgreSQL connection string (from Supabase/Neon).
+- `REDIS_URL`: Your Redis connection string (from Upstash).
+- `ADMIN_CHAT_ID`: Your Telegram Chat ID for admin notifications.
+- `SESSION_SECRET`: A long random string for session security.
+- `PORT`: Set to `5000` (Render will use this to route traffic).
+- `NODE_ENV`: Set to `production`.
 
 ## Withdrawal Eligibility
 To withdraw, players must:
