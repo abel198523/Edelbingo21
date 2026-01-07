@@ -1756,10 +1756,22 @@ wss.on('connection', (ws) => {
                         const cardIdToConfirm = data.cardId || player.selectedCardId;
                         
                         if (cardIdToConfirm) {
-                            player.selectedCardId = cardIdToConfirm;
+                            // Check balance before allowing confirmation
+                            const balance = await Wallet.getBalance(player.userId);
+                            if (parseFloat(balance) < gameState.stakeAmount) {
+                                ws.send(JSON.stringify({ 
+                                    type: 'error', 
+                                    error: 'በቂ ሒሳብ የለም። እባክዎ ዲፖዚት ያድርጉ።' 
+                                }));
+                                break;
+                            }
+
+                            // Deduct stake immediately
+                            await Wallet.deductBalance(player.userId, gameState.stakeAmount, `Stake for game #${currentGameId}`);
                             
-                            // Note: Stake is already deducted via /api/bet, just confirm the card
+                            player.selectedCardId = cardIdToConfirm;
                             player.isCardConfirmed = true;
+                            player.balance = parseFloat(balance) - gameState.stakeAmount;
                             
                             try {
                                 await Game.addParticipant(
@@ -2333,13 +2345,13 @@ app.get('/api/admin/advanced-stats', async (req, res) => {
             
             // Income (Confirmed Deposits)
             const incomeRes = await pool.query(
-                `SELECT SUM(amount) as total FROM deposits WHERE status = 'confirmed' AND created_at > NOW() - INTERVAL '1 ${interval}'`
+                `SELECT COALESCE(SUM(amount), 0) as total FROM deposits WHERE status = 'confirmed' AND confirmed_at > NOW() - INTERVAL '1 ${interval}'`
             );
             stats[key].income = parseFloat(incomeRes.rows[0].total || 0);
 
             // Expense (Approved Withdrawals)
             const expenseRes = await pool.query(
-                `SELECT SUM(amount) as total FROM withdrawals WHERE status = 'approved' AND created_at > NOW() - INTERVAL '1 ${interval}'`
+                `SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE type = 'win' AND created_at > NOW() - INTERVAL '1 ${interval}'`
             );
             stats[key].expense = parseFloat(expenseRes.rows[0].total || 0);
 
