@@ -2190,6 +2190,92 @@ app.post('/api/bet', async (req, res) => {
 // ================== Admin API Routes ==================
 
 // Admin Stats
+// --- Telebirr Webhook Logic ---
+app.get('/health', (req, res) => res.send('OK'));
+
+app.post('/telebirr-webhook', async (req, res) => {
+    const { secret_key, message } = req.body;
+    
+    console.log('Incoming Telebirr Webhook:', JSON.stringify(req.body));
+
+    if (secret_key !== process.env.TELE_SECRET) {
+        console.error('Invalid Telebirr secret key');
+        return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    if (!message) {
+        return res.status(400).json({ error: 'Message is required' });
+    }
+
+    // Regex patterns for Transaction ID and Amount
+    const txIdPattern = /([A-Z0-9]{10,12})/;
+    const amountPattern = /ETB\s*([\d,.]+)/i;
+
+    const txIdMatch = message.match(txIdPattern);
+    const amountMatch = message.match(amountPattern);
+
+    if (!txIdMatch || !amountMatch) {
+        console.error('Failed to extract data from message:', message);
+        return res.status(422).json({ error: 'Data extraction failed' });
+    }
+
+    const transactionId = txIdMatch[1];
+    const amount = parseFloat(amountMatch[1].replace(/,/g, ''));
+
+    console.log(`Extracted: ID=${transactionId}, Amount=${amount}`);
+
+    try {
+        // Check if transaction exists
+        const depositCheck = await pool.query(
+            'SELECT * FROM deposits WHERE confirmation_code = $1',
+            [transactionId]
+        );
+
+        if (depositCheck.rows.length > 0) {
+            const deposit = depositCheck.rows[0];
+            
+            if (deposit.status === 'pending') {
+                // Update user balance and deposit status
+                await pool.query('BEGIN');
+                await pool.query(
+                    'UPDATE wallets SET balance = balance + $1 WHERE user_id = $2',
+                    [amount, deposit.user_id]
+                );
+                await pool.query(
+                    'UPDATE deposits SET status = $1, confirmed_at = NOW() WHERE id = $2',
+                    ['confirmed', deposit.id]
+                );
+                await pool.query('COMMIT');
+
+                // Notify user
+                const userInfo = await pool.query('SELECT telegram_id FROM users WHERE id = $1', [deposit.user_id]);
+                if (userInfo.rows.length > 0) {
+                    bot.sendMessage(userInfo.rows[0].telegram_id, `✅ ዲፖዚት ተረጋግጧል! ${amount} ብር ወደ ሒሳብዎ ተጨምሯል።`);
+                }
+                
+                console.log(`Deposit ${deposit.id} completed via webhook`);
+            } else {
+                console.log(`Transaction ${transactionId} already processed with status: ${deposit.status}`);
+            }
+        } else {
+            // Transaction doesn't exist in our records yet (SMS arrived before user submitted)
+            console.log(`Transaction ${transactionId} not found in deposits. Logging for manual/future verification.`);
+            
+            // Optional: Insert as completed but with unknown user_id? 
+            // Better to just log or handle when the user eventually submits.
+            // For now, let's log it clearly as requested.
+            console.log('--- MANUAL VERIFICATION NEEDED ---');
+            console.log(`Transaction ID: ${transactionId}, Amount: ${amount}, Message: ${message}`);
+        }
+
+        res.json({ success: true });
+    } catch (error) {
+        await pool.query('ROLLBACK').catch(() => {});
+        console.error('Telebirr webhook database error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // Admin Broadcast Endpoint
 app.post('/api/admin/broadcast', upload.single('image'), async (req, res) => {
     const { message } = req.body;
