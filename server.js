@@ -656,13 +656,14 @@ bot.on('message', async (msg) => {
             userStates.set(telegramId, state);
             
             const paymentInfo = state.paymentMethod === 'telebirr' 
-                ? '📱 Telebirr: 0980682889' 
-                : '🏦 CBE: 1000123456789';
+                ? '📱 Telebirr: <code>0980682889</code>' 
+                : '🏦 CBE: <code>1000123456789</code>';
             
             await bot.sendMessage(chatId, 
                 `💵 መጠን: ${amount} ብር\n\n` +
                 `${paymentInfo}\n\n` +
-                `ገንዘቡን ከላኩ በኋላ የማረጋገጫ ኮድዎን ያስገቡ:`
+                `ገንዘቡን ከላኩ በኋላ ከቴሌብር የሚደርስዎት ሜሴጅ ላይ የማረጋገጫ ኮድዎን ኮፒ አድርገው ይላኩ ወይንም ሙሉ ቴክስቱን ኮፒ አድርገው እዚ ይላኩ።`,
+                { parse_mode: 'HTML' }
             );
         } else if (state.step === 'confirmation_code') {
             state.confirmationCode = text;
