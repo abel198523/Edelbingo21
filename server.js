@@ -32,6 +32,11 @@ const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const RENDER_SERVER_URL = process.env.RENDER_SERVER_URL;
 const MINI_APP_URL = process.env.MINI_APP_URL || (process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : null);
 
+console.log('MINI_APP_URL configuration:', {
+    MINI_APP_URL: MINI_APP_URL,
+    REPLIT_DOMAINS: process.env.REPLIT_DOMAINS
+});
+
 // Use polling but handle conflicts gracefully
 const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, {
     polling: {
@@ -258,8 +263,11 @@ const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID;
 function getMainKeyboard(telegramId) {
     // Ensure we are using the telegram ID for the mini app URL
     // Stringify telegramId just in case, and ensure MINI_APP_URL is a string
-    const baseUrl = String(MINI_APP_URL || "");
-    const miniAppUrlWithId = baseUrl ? `${baseUrl}?tg_id=${telegramId}` : baseUrl;
+    const baseUrl = String(MINI_APP_URL || "").trim();
+    
+    // Fallback if URL is empty or invalid
+    const finalUrl = baseUrl || `https://${process.env.REPLIT_DEV_DOMAIN || 'replit.com'}`;
+    const miniAppUrlWithId = `${finalUrl}${finalUrl.includes('?') ? '&' : '?'}tg_id=${telegramId}`;
     
     return {
         keyboard: [
