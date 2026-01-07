@@ -2194,7 +2194,7 @@ app.post('/api/bet', async (req, res) => {
 app.get('/health', (req, res) => res.send('OK'));
 
 app.post('/telebirr-webhook', async (req, res) => {
-    const { secret_key, message } = req.body;
+    const { secret_key, message, sender } = req.body;
     
     console.log('Incoming Telebirr Webhook:', JSON.stringify(req.body));
 
@@ -2203,16 +2203,22 @@ app.post('/telebirr-webhook', async (req, res) => {
         return res.status(403).json({ error: 'Unauthorized' });
     }
 
-    if (!message) {
-        return res.status(400).json({ error: 'Message is required' });
+    if (sender !== '127') {
+        console.log(`Ignoring message from sender: ${sender}`);
+        return res.status(200).json({ status: 'ignored', reason: 'invalid_sender' });
     }
 
-    // Regex patterns for Transaction ID and Amount
-    const txIdPattern = /([A-Z0-9]{10,12})/;
-    const amountPattern = /ETB\s*([\d,.]+)/i;
+    if (!message || !message.includes('ተቀብለዋል')) {
+        console.log('Message does not contain the required keyword "ተቀብለዋል"');
+        return res.status(200).json({ status: 'ignored', reason: 'missing_keyword' });
+    }
 
-    const txIdMatch = message.match(txIdPattern);
+    // Regex patterns for Transaction ID and Amount based on Amharic format
+    const amountPattern = /([\d,.]+)\s*ብር/;
+    const txIdPattern = /ቁጥርዎ\s*([A-Z0-9]+)/;
+
     const amountMatch = message.match(amountPattern);
+    const txIdMatch = message.match(txIdPattern);
 
     if (!txIdMatch || !amountMatch) {
         console.error('Failed to extract data from message:', message);
@@ -2222,7 +2228,7 @@ app.post('/telebirr-webhook', async (req, res) => {
     const transactionId = txIdMatch[1];
     const amount = parseFloat(amountMatch[1].replace(/,/g, ''));
 
-    console.log(`Extracted: ID=${transactionId}, Amount=${amount}`);
+    console.log(`Extracted Amharic format: ID=${transactionId}, Amount=${amount}`);
 
     try {
         // Check if transaction exists
@@ -2253,22 +2259,17 @@ app.post('/telebirr-webhook', async (req, res) => {
                     bot.sendMessage(userInfo.rows[0].telegram_id, `✅ ዲፖዚት ተረጋግጧል! ${amount} ብር ወደ ሒሳብዎ ተጨምሯል።`);
                 }
                 
-                console.log(`Deposit ${deposit.id} completed via webhook`);
+                console.log(`Deposit ${deposit.id} completed via Amharic webhook`);
             } else {
                 console.log(`Transaction ${transactionId} already processed with status: ${deposit.status}`);
             }
         } else {
-            // Transaction doesn't exist in our records yet (SMS arrived before user submitted)
             console.log(`Transaction ${transactionId} not found in deposits. Logging for manual/future verification.`);
-            
-            // Optional: Insert as completed but with unknown user_id? 
-            // Better to just log or handle when the user eventually submits.
-            // For now, let's log it clearly as requested.
             console.log('--- MANUAL VERIFICATION NEEDED ---');
             console.log(`Transaction ID: ${transactionId}, Amount: ${amount}, Message: ${message}`);
         }
 
-        res.json({ success: true });
+        res.status(200).json({ success: true });
     } catch (error) {
         await pool.query('ROLLBACK').catch(() => {});
         console.error('Telebirr webhook database error:', error);
