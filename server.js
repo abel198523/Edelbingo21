@@ -265,24 +265,7 @@ const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID;
 
 // Helper function to get main keyboard
 function getMainKeyboard(telegramId) {
-    // Ensure we are using the telegram ID for the mini app URL
-    // Stringify telegramId just in case, and ensure MINI_APP_URL is a string
-    const baseUrl = String(MINI_APP_URL || "").trim();
-    
-    // Fallback if URL is empty or invalid
-    let finalUrl = baseUrl;
-    if (!finalUrl || finalUrl.includes('replit.dev')) {
-        if (process.env.RENDER_EXTERNAL_URL) {
-            finalUrl = process.env.RENDER_EXTERNAL_URL;
-        } else if (process.env.RENDER_SERVER_URL) {
-            finalUrl = process.env.RENDER_SERVER_URL;
-        }
-    }
-    
-    if (!finalUrl) {
-        finalUrl = `https://${process.env.REPLIT_DEV_DOMAIN || 'replit.com'}`;
-    }
-
+    const finalUrl = "https://royal-bingo.onrender.com";
     const miniAppUrlWithId = `${finalUrl}${finalUrl.includes('?') ? '&' : '?'}tg_id=${telegramId}`;
     
     return {
