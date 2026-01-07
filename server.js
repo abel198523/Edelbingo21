@@ -1757,8 +1757,8 @@ wss.on('connection', (ws) => {
                         
                         if (cardIdToConfirm) {
                             // Check balance before allowing confirmation
-                            const balance = await Wallet.getBalance(player.userId);
-                            if (parseFloat(balance) < gameState.stakeAmount) {
+                            const currentBalance = await Wallet.getBalance(player.userId);
+                            if (parseFloat(currentBalance) < gameState.stakeAmount) {
                                 ws.send(JSON.stringify({ 
                                     type: 'error', 
                                     error: 'በቂ ሒሳብ የለም። እባክዎ ዲፖዚት ያድርጉ።' 
@@ -1771,7 +1771,7 @@ wss.on('connection', (ws) => {
                             
                             player.selectedCardId = cardIdToConfirm;
                             player.isCardConfirmed = true;
-                            player.balance = parseFloat(balance) - gameState.stakeAmount;
+                            player.balance = parseFloat(currentBalance) - gameState.stakeAmount;
                             
                             try {
                                 await Game.addParticipant(
@@ -2349,7 +2349,7 @@ app.get('/api/admin/advanced-stats', async (req, res) => {
             );
             stats[key].income = parseFloat(incomeRes.rows[0].total || 0);
 
-            // Expense (Approved Withdrawals)
+            // Expense (Total payouts for won games)
             const expenseRes = await pool.query(
                 `SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE type = 'win' AND created_at > NOW() - INTERVAL '1 ${interval}'`
             );
