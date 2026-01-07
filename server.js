@@ -257,11 +257,13 @@ const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID;
 // Helper function to get main keyboard
 function getMainKeyboard(telegramId) {
     // Ensure we are using the telegram ID for the mini app URL
-    const miniAppUrlWithId = MINI_APP_URL ? `${MINI_APP_URL}?tg_id=${telegramId}` : MINI_APP_URL;
+    // Stringify telegramId just in case, and ensure MINI_APP_URL is a string
+    const baseUrl = String(MINI_APP_URL || "");
+    const miniAppUrlWithId = baseUrl ? `${baseUrl}?tg_id=${telegramId}` : baseUrl;
     
     return {
         keyboard: [
-            [{ text: "▶️ Play", web_app: { url: miniAppUrlWithId } }],
+            [{ text: "▶️ Play", web_app: { url: String(miniAppUrlWithId) } }],
             [{ text: "💰 Check Balance" }, { text: "🔗 Referral Link" }],
             [{ text: "💳 Deposit" }, { text: "💸 Withdraw" }]
         ],
