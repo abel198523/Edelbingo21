@@ -308,8 +308,8 @@
         <div class="sub-content">
             <div class="section">
                 <div style="margin-bottom: 20px;">
-                    <label style="display: block; margin-bottom: 8px; color: #95a5a6; font-size: 0.9rem;">የምስል ሊንክ (Image URL - Optional):</label>
-                    <input type="text" id="broadcastImageUrl" style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(0, 0, 0, 0.3); color: #fff; outline: none;" placeholder="https://example.com/image.jpg">
+                    <label style="display: block; margin-bottom: 8px; color: #95a5a6; font-size: 0.9rem;">ምስል ይምረጡ (Choose Photo):</label>
+                    <input type="file" id="broadcastImageFile" accept="image/*" style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(0, 0, 0, 0.3); color: #fff; outline: none;">
                 </div>
                 <div style="margin-bottom: 20px;">
                     <label style="display: block; margin-bottom: 8px; color: #95a5a6; font-size: 0.9rem;">መልእክት (Message):</label>
@@ -486,10 +486,10 @@
         }
         async function sendBroadcast() {
             const message = document.getElementById('broadcastMessage').value.trim();
-            const imageUrl = document.getElementById('broadcastImageUrl').value.trim();
+            const imageFile = document.getElementById('broadcastImageFile').files[0];
             
-            if (!message && !imageUrl) {
-                alert('እባክዎ መልእክት ወይም የምስል ሊንክ ያስገቡ');
+            if (!message && !imageFile) {
+                alert('እባክዎ መልእክት ያስገቡ ወይም ምስል ይምረጡ');
                 return;
             }
 
@@ -498,18 +498,23 @@
             const statusDiv = document.getElementById('broadcastStatus');
             statusDiv.innerHTML = '<div class="loading">በመላክ ላይ...</div>';
             
+            const formData = new FormData();
+            formData.append('message', message);
+            if (imageFile) {
+                formData.append('image', imageFile);
+            }
+
             try {
                 const response = await fetch('/api/admin/broadcast', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message, imageUrl })
+                    body: formData
                 });
                 
                 const result = await response.json();
                 if (result.success) {
                     statusDiv.innerHTML = `<div style="color: #2ecc71">✅ መልእክቱ በተሳካ ሁኔታ ተልኳል!<br>የደረሳቸው: ${result.successCount} | ያልደረሳቸው: ${result.failCount}</div>`;
                     document.getElementById('broadcastMessage').value = '';
-                    document.getElementById('broadcastImageUrl').value = '';
+                    document.getElementById('broadcastImageFile').value = '';
                 } else {
                     statusDiv.innerHTML = `<div style="color: #e74c3c">❌ ስህተት ተፈጥሯል: ${result.error}</div>`;
                 }

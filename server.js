@@ -6,6 +6,15 @@ const path = require('path');
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
 const bodyParser = require('body-parser');
+const multer = require('multer');
+const fs = require('fs');
+
+// Setup multer for image uploads
+const upload = multer({ dest: 'uploads/' });
+if (!fs.existsSync('uploads')) {
+    fs.mkdirSync('uploads');
+}
+
 const { Pool } = require('pg');
 const TelegramBot = require('node-telegram-bot-api'); 
 
@@ -2182,9 +2191,11 @@ app.post('/api/bet', async (req, res) => {
 
 // Admin Stats
 // Admin Broadcast Endpoint
-app.post('/api/admin/broadcast', async (req, res) => {
-    const { message, imageUrl } = req.body;
-    if (!message && !imageUrl) return res.status(400).json({ error: 'Message or Image URL is required' });
+app.post('/api/admin/broadcast', upload.single('image'), async (req, res) => {
+    const { message } = req.body;
+    const imageFile = req.file;
+    
+    if (!message && !imageFile) return res.status(400).json({ error: 'Message or Image is required' });
 
     try {
         const users = await pool.query('SELECT telegram_id FROM users WHERE is_registered = true');
@@ -2193,8 +2204,8 @@ app.post('/api/admin/broadcast', async (req, res) => {
 
         for (const user of users.rows) {
             try {
-                if (imageUrl) {
-                    await bot.sendPhoto(user.telegram_id, imageUrl, { caption: message });
+                if (imageFile) {
+                    await bot.sendPhoto(user.telegram_id, imageFile.path, { caption: message });
                 } else {
                     await bot.sendMessage(user.telegram_id, message);
                 }
@@ -2203,6 +2214,13 @@ app.post('/api/admin/broadcast', async (req, res) => {
                 console.error(`Failed to send broadcast to ${user.telegram_id}:`, err.message);
                 failCount++;
             }
+        }
+
+        // Clean up uploaded file
+        if (imageFile) {
+            fs.unlink(imageFile.path, (err) => {
+                if (err) console.error('Failed to delete temp file:', err);
+            });
         }
 
         res.json({ success: true, successCount, failCount });
