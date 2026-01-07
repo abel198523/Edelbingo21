@@ -61,7 +61,7 @@ async function initializeDatabase() {
             CREATE TABLE IF NOT EXISTS users (
                 id SERIAL PRIMARY KEY,
                 username VARCHAR(50),
-                telegram_id BIGINT UNIQUE,
+                telegram_id VARCHAR(100) UNIQUE,
                 phone_number VARCHAR(20),
                 password_hash VARCHAR(255),
                 is_registered BOOLEAN DEFAULT false,

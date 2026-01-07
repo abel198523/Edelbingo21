@@ -165,7 +165,7 @@ bot.on('contact', async (msg) => {
     
     try {
         // Check if already registered
-        const existingUser = await pool.query('SELECT * FROM users WHERE telegram_id = $1', [senderId]);
+        const existingUser = await pool.query('SELECT * FROM users WHERE telegram_id = $1', [senderId.toString()]);
         
         if (existingUser.rows.length > 0) {
             console.log(`User ${senderId} already registered. Showing keyboard.`);
@@ -238,7 +238,7 @@ bot.onText(/💰 Check Balance/, async (msg) => {
     try {
         const result = await pool.query(
             'SELECT w.balance FROM users u JOIN wallets w ON u.id = w.user_id WHERE u.telegram_id = $1',
-            [telegramId]
+            [telegramId.toString()]
         );
         
         if (result.rows.length > 0) {
@@ -322,7 +322,7 @@ async function checkWithdrawEligibility(telegramId) {
     try {
         const userResult = await pool.query(
             'SELECT u.id FROM users u WHERE u.telegram_id = $1',
-            [telegramId]
+            [telegramId.toString()]
         );
         
         if (userResult.rows.length === 0) {
@@ -395,7 +395,7 @@ bot.onText(/💸 Withdraw/, async (msg) => {
     try {
         const balanceResult = await pool.query(
             'SELECT w.balance FROM users u JOIN wallets w ON u.id = w.user_id WHERE u.telegram_id = $1',
-            [telegramId]
+            [telegramId.toString()]
         );
         
         if (balanceResult.rows.length === 0) {
@@ -461,7 +461,7 @@ bot.onText(/💳 Deposit/, async (msg) => {
     try {
         const userResult = await pool.query(
             'SELECT id FROM users WHERE telegram_id = $1',
-            [telegramId]
+            [telegramId.toString()]
         );
         
         if (userResult.rows.length === 0) {
@@ -573,7 +573,7 @@ bot.on('message', async (msg) => {
             
             const balanceResult = await pool.query(
                 'SELECT w.balance FROM wallets w JOIN users u ON w.user_id = u.id WHERE u.telegram_id = $1',
-                [telegramId]
+                [telegramId.toString()]
             );
             const balance = parseFloat(balanceResult.rows[0]?.balance || 0);
             
