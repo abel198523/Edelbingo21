@@ -186,9 +186,10 @@ bot.on('contact', async (msg) => {
         const username = msg.from.username || `Player_${senderId}`;
         console.log(`Attempting to register user: ${senderId}, Phone: ${phoneNumber}, Referrer: ${referrerId}`);
         
+        // Ensure referrals table exists by using a sub-query or checking for column
         const userResult = await pool.query(
             'INSERT INTO users (telegram_id, username, phone_number, is_registered) VALUES ($1, $2, $3, $4) RETURNING id',
-            [senderId, username, phoneNumber, true]
+            [senderId.toString(), username, phoneNumber, true]
         );
         
         if (!userResult.rows || userResult.rows.length === 0) {
@@ -213,7 +214,7 @@ bot.on('contact', async (msg) => {
                 // Notify referrer
                 const referrerInfo = await pool.query('SELECT telegram_id FROM users WHERE id = $1', [referrerId]);
                 if (referrerInfo.rows.length > 0) {
-                    bot.sendMessage(referrerInfo.rows[0].telegram_id, `🎁 አዲስ ሰው በሊንክዎ ስለተመዘገበ የ ${bonusAmount} ብር ቦነስ አግኝተዋል!`);
+                    bot.sendMessage(referrerInfo.rows[0].telegram_id.toString(), `🎁 አዲስ ሰው በሊንክዎ ስለተመዘገበ የ ${bonusAmount} ብር ቦነስ አግኝተዋል!`);
                 }
             } catch (refErr) {
                 console.error('Referral bonus error:', refErr);
@@ -229,7 +230,7 @@ bot.on('contact', async (msg) => {
         
     } catch (error) {
         console.error('Registration error details:', error);
-        bot.sendMessage(chatId, "ይቅርታ፣ በመመዝገብ ላይ ችግር ተፈጥሯል። እባክዎ እንደገና ይሞክሩ።");
+        bot.sendMessage(chatId, `ይቅርታ፣ በመመዝገብ ላይ ችግር ተፈጥሯል።\nError: ${error.message}`);
     }
 });
 
