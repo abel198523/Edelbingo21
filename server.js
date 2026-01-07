@@ -2181,6 +2181,33 @@ app.post('/api/bet', async (req, res) => {
 // ================== Admin API Routes ==================
 
 // Admin Stats
+// Admin Broadcast Endpoint
+app.post('/api/admin/broadcast', async (req, res) => {
+    const { message } = req.body;
+    if (!message) return res.status(400).json({ error: 'Message is required' });
+
+    try {
+        const users = await pool.query('SELECT telegram_id FROM users WHERE is_registered = true');
+        let successCount = 0;
+        let failCount = 0;
+
+        for (const user of users.rows) {
+            try {
+                await bot.sendMessage(user.telegram_id, message);
+                successCount++;
+            } catch (err) {
+                console.error(`Failed to send broadcast to ${user.telegram_id}:`, err.message);
+                failCount++;
+            }
+        }
+
+        res.json({ success: true, successCount, failCount });
+    } catch (error) {
+        console.error('Broadcast error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 app.get('/api/admin/stats', async (req, res) => {
     try {
         const totalUsers = await pool.query('SELECT COUNT(*) as count FROM users');
