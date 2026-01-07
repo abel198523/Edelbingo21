@@ -2317,6 +2317,49 @@ app.post('/api/admin/broadcast', upload.single('image'), async (req, res) => {
     }
 });
 
+// Admin Advanced Stats
+app.get('/api/admin/advanced-stats', async (req, res) => {
+    try {
+        const stats = {
+            daily: { income: 0, expense: 0, games: 0 },
+            weekly: { income: 0, expense: 0, games: 0 },
+            monthly: { income: 0, expense: 0, games: 0 }
+        };
+
+        const intervals = ['day', 'week', 'month'];
+        
+        for (const interval of intervals) {
+            const key = interval === 'day' ? 'daily' : interval === 'week' ? 'weekly' : 'monthly';
+            
+            // Income (Confirmed Deposits)
+            const incomeRes = await pool.query(
+                `SELECT SUM(amount) as total FROM deposits WHERE status = 'confirmed' AND created_at > NOW() - INTERVAL '1 ${interval}'`
+            );
+            stats[key].income = parseFloat(incomeRes.rows[0].total || 0);
+
+            // Expense (Approved Withdrawals)
+            const expenseRes = await pool.query(
+                `SELECT SUM(amount) as total FROM withdrawals WHERE status = 'approved' AND created_at > NOW() - INTERVAL '1 ${interval}'`
+            );
+            stats[key].expense = parseFloat(expenseRes.rows[0].total || 0);
+
+            // Games with at least one participant
+            const gamesRes = await pool.query(
+                `SELECT COUNT(DISTINCT g.id) as count 
+                 FROM games g 
+                 JOIN game_participants gp ON g.id = gp.game_id 
+                 WHERE g.created_at > NOW() - INTERVAL '1 ${interval}'`
+            );
+            stats[key].games = parseInt(gamesRes.rows[0].count || 0);
+        }
+
+        res.json(stats);
+    } catch (error) {
+        console.error('Advanced stats error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 app.get('/api/admin/stats', async (req, res) => {
     try {
         const totalUsers = await pool.query('SELECT COUNT(*) as count FROM users');

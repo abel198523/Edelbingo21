@@ -65,6 +65,72 @@
             margin-bottom: 40px;
         }
         
+        .advanced-stats {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 40px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .stats-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 25px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 10px;
+        }
+
+        .tab-btn {
+            background: none;
+            border: none;
+            color: #95a5a6;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-size: 1rem;
+            border-radius: 5px;
+            transition: all 0.2s;
+        }
+
+        .tab-btn.active {
+            background: #f39c12;
+            color: #fff;
+        }
+
+        .tab-content {
+            display: none;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .tab-content.active {
+            display: grid;
+        }
+
+        .adv-stat-item {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .adv-stat-item h4 {
+            font-size: 0.8rem;
+            color: #95a5a6;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+
+        .adv-stat-item .adv-value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #fff;
+        }
+
+        .adv-stat-item .adv-value.income { color: #2ecc71; }
+        .adv-stat-item .adv-value.expense { color: #e74c3c; }
+        .adv-stat-item .adv-value.games { color: #3498db; }
+        
         .stat-card {
             background: rgba(255, 255, 255, 0.05);
             padding: 30px;
@@ -267,6 +333,61 @@
     </div>
 
     <div class="main-container">
+        <!-- Advanced Stats Section -->
+        <div class="advanced-stats">
+            <h2 style="color: #f39c12; margin-bottom: 20px; font-size: 1.2rem;">📊 ዝርዝር ስታስቲክስ (Advanced Stats)</h2>
+            <div class="stats-tabs">
+                <button class="tab-btn active" onclick="switchTab('daily')">ዛሬ (Today)</button>
+                <button class="tab-btn" onclick="switchTab('weekly')">በዚህ ሳምንት</button>
+                <button class="tab-btn" onclick="switchTab('monthly')">በዚህ ወር</button>
+            </div>
+
+            <div id="daily-tab" class="tab-content active">
+                <div class="adv-stat-item">
+                    <h4>ጠቅላላ ገቢ (Income)</h4>
+                    <div class="adv-value income" id="dailyIncome">0 ብር</div>
+                </div>
+                <div class="adv-stat-item">
+                    <h4>ጠቅላላ ወጪ (Expense)</h4>
+                    <div class="adv-value expense" id="dailyExpense">0 ብር</div>
+                </div>
+                <div class="adv-stat-item">
+                    <h4>የተደረጉ ጨዋታዎች</h4>
+                    <div class="adv-value games" id="dailyGames">0</div>
+                </div>
+            </div>
+
+            <div id="weekly-tab" class="tab-content">
+                <div class="adv-stat-item">
+                    <h4>ጠቅላላ ገቢ (Income)</h4>
+                    <div class="adv-value income" id="weeklyIncome">0 ብር</div>
+                </div>
+                <div class="adv-stat-item">
+                    <h4>ጠቅላላ ወጪ (Expense)</h4>
+                    <div class="adv-value expense" id="weeklyExpense">0 ብር</div>
+                </div>
+                <div class="adv-stat-item">
+                    <h4>የተደረጉ ጨዋታዎች</h4>
+                    <div class="adv-value games" id="weeklyGames">0</div>
+                </div>
+            </div>
+
+            <div id="monthly-tab" class="tab-content">
+                <div class="adv-stat-item">
+                    <h4>ጠቅላላ ገቢ (Income)</h4>
+                    <div class="adv-value income" id="monthlyIncome">0 ብር</div>
+                </div>
+                <div class="adv-stat-item">
+                    <h4>ጠቅላላ ወጪ (Expense)</h4>
+                    <div class="adv-value expense" id="monthlyExpense">0 ብር</div>
+                </div>
+                <div class="adv-stat-item">
+                    <h4>የተደረጉ ጨዋታዎች</h4>
+                    <div class="adv-value games" id="monthlyGames">0</div>
+                </div>
+            </div>
+        </div>
+
         <!-- Main Stats Section -->
         <div class="stats-grid">
             <div class="stat-card">
@@ -362,6 +483,7 @@
 
         async function loadData() {
             try {
+                // Load basic stats
                 const response = await fetch('/api/admin/stats');
                 const data = await response.json();
                 
@@ -370,9 +492,37 @@
                 
                 document.getElementById('pendingDepositsCount').textContent = (data.pendingDeposits || 0) + ' በመጠባበቅ ላይ';
                 document.getElementById('pendingWithdrawalsCount').textContent = (data.pendingWithdrawals || 0) + ' በመጠባበቅ ላይ';
+
+                // Load advanced stats
+                const advResponse = await fetch('/api/admin/advanced-stats');
+                const advData = await advResponse.json();
+                
+                // Update Daily
+                document.getElementById('dailyIncome').textContent = (advData.daily.income || 0).toFixed(2) + ' ብር';
+                document.getElementById('dailyExpense').textContent = (advData.daily.expense || 0).toFixed(2) + ' ብር';
+                document.getElementById('dailyGames').textContent = advData.daily.games || 0;
+
+                // Update Weekly
+                document.getElementById('weeklyIncome').textContent = (advData.weekly.income || 0).toFixed(2) + ' ብር';
+                document.getElementById('weeklyExpense').textContent = (advData.weekly.expense || 0).toFixed(2) + ' ብር';
+                document.getElementById('weeklyGames').textContent = advData.weekly.games || 0;
+
+                // Update Monthly
+                document.getElementById('monthlyIncome').textContent = (advData.monthly.income || 0).toFixed(2) + ' ብር';
+                document.getElementById('monthlyExpense').textContent = (advData.monthly.expense || 0).toFixed(2) + ' ብር';
+                document.getElementById('monthlyGames').textContent = advData.monthly.games || 0;
+
             } catch (err) {
                 console.error('Failed to load stats:', err);
             }
+        }
+
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(tab + '-tab').classList.add('active');
         }
 
         window.onload = loadData;
