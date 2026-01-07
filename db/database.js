@@ -6,10 +6,14 @@ const { Redis: UpstashRedis } = require('@upstash/redis');
 // prioritized for external databases (Supabase, etc.)
 const pool = new Pool({
     connectionString: process.env.EXTERNAL_DATABASE_URL || process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false }, 
-    max: 10, // Reduced max connections for stability on free tiers
+    ssl: { 
+        rejectUnauthorized: false
+    }, 
+    max: 10,
     idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 10000, // Increased timeout for external latency
+    connectionTimeoutMillis: 15000,
+    keepalive: true,
+    keepaliveInitialDelayMillis: 10000
 });
 
 // Redis Client logic with Upstash fallback support

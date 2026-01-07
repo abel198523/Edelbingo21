@@ -17,7 +17,10 @@ const { validateBingo } = require('./data/cards');
 
 const pool = new Pool({
     connectionString: process.env.EXTERNAL_DATABASE_URL || process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false }
+    ssl: { 
+        rejectUnauthorized: false
+    },
+    keepalive: true
 });
 
 const app = express();
