@@ -1534,12 +1534,12 @@ function stopNumberCalling() {
 }
 
 async function gameLoop() {
-    if (gameState.phase === 'game') {
+    if (gameState.phase === 'game' || gameState.phase === 'winner') {
         return;
     }
     
     gameState.timeLeft--;
-    if (gameState.timeLeft % 5 === 0) syncGameStateToRedis(); // Periodically sync timer
+    if (gameState.timeLeft % 5 === 0) syncGameStateToRedis();
     
     broadcast({
         type: 'timer_update',
@@ -1550,26 +1550,13 @@ async function gameLoop() {
     if (gameState.timeLeft <= 0) {
         if (gameState.phase === 'selection') {
             const confirmedPlayers = getConfirmedPlayersCount();
-            
-            // Start game even if only 1 player is confirmed
             if (confirmedPlayers >= 1) {
-                console.log('Starting game phase with', confirmedPlayers, 'players');
                 gameState.phase = 'game';
                 gameState.timeLeft = 0;
-                
-                broadcast({
-                    type: 'phase_change',
-                    phase: 'game'
-                });
-                
+                broadcast({ type: 'phase_change', phase: 'game' });
                 startGamePhase();
-                
-                // Small delay before starting to call numbers
-                setTimeout(() => {
-                    startNumberCalling();
-                }, 2000);
+                setTimeout(() => startNumberCalling(), 2000);
             } else {
-                console.log('No players confirmed, restarting selection');
                 startSelectionPhase();
             }
         } else if (gameState.phase === 'winner') {
