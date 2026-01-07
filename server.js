@@ -1538,29 +1538,31 @@ async function gameLoop() {
         return;
     }
     
-    gameState.timeLeft--;
-    if (gameState.timeLeft % 5 === 0) syncGameStateToRedis();
-    
-    broadcast({
-        type: 'timer_update',
-        phase: gameState.phase,
-        timeLeft: gameState.timeLeft
-    });
-    
-    if (gameState.timeLeft <= 0) {
-        if (gameState.phase === 'selection') {
+    // Safety check: if we are in selection and have confirmed players, 
+    // but somehow gameLoop is still running or timeLeft is messed up
+    if (gameState.phase === 'selection') {
+        gameState.timeLeft--;
+        if (gameState.timeLeft % 5 === 0) syncGameStateToRedis();
+        
+        broadcast({
+            type: 'timer_update',
+            phase: gameState.phase,
+            timeLeft: gameState.timeLeft
+        });
+        
+        if (gameState.timeLeft <= 0) {
             const confirmedPlayers = getConfirmedPlayersCount();
             if (confirmedPlayers >= 1) {
+                console.log('--- Starting game phase with', confirmedPlayers, 'players ---');
                 gameState.phase = 'game';
-                gameState.timeLeft = 0;
+                gameState.timeLeft = -1; // Indicate active game
                 broadcast({ type: 'phase_change', phase: 'game' });
                 startGamePhase();
                 setTimeout(() => startNumberCalling(), 2000);
             } else {
+                console.log('--- No players confirmed, restarting selection ---');
                 startSelectionPhase();
             }
-        } else if (gameState.phase === 'winner') {
-            startSelectionPhase();
         }
     }
 }
@@ -1745,7 +1747,9 @@ wss.on('connection', (ws) => {
                         if (cardIdToConfirm) {
                             // Check balance before allowing confirmation
                             const currentBalance = await Wallet.getBalance(player.userId);
-                            if (parseFloat(currentBalance) < gameState.stakeAmount) {
+                            const stakeAmount = parseFloat(gameState.stakeAmount || 10);
+                            
+                            if (parseFloat(currentBalance) < stakeAmount) {
                                 ws.send(JSON.stringify({ 
                                     type: 'error', 
                                     error: 'በቂ ሒሳብ የለም። እባክዎ ዲፖዚት ያድርጉ።' 
@@ -1754,11 +1758,12 @@ wss.on('connection', (ws) => {
                             }
 
                             // Deduct stake immediately
-                            await Wallet.deductBalance(player.userId, gameState.stakeAmount, `Stake for game #${currentGameId}`);
+                            const deductionResult = await Wallet.deductBalance(player.userId, stakeAmount, `Stake for game #${currentGameId}`);
+                            console.log(`Deducted ${stakeAmount} from user ${player.userId}. Success: ${deductionResult}`);
                             
                             player.selectedCardId = cardIdToConfirm;
                             player.isCardConfirmed = true;
-                            player.balance = parseFloat(currentBalance) - gameState.stakeAmount;
+                            player.balance = parseFloat(currentBalance) - stakeAmount;
                             
                             try {
                                 await Game.addParticipant(
