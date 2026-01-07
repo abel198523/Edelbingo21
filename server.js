@@ -2183,8 +2183,8 @@ app.post('/api/bet', async (req, res) => {
 // Admin Stats
 // Admin Broadcast Endpoint
 app.post('/api/admin/broadcast', async (req, res) => {
-    const { message } = req.body;
-    if (!message) return res.status(400).json({ error: 'Message is required' });
+    const { message, imageUrl } = req.body;
+    if (!message && !imageUrl) return res.status(400).json({ error: 'Message or Image URL is required' });
 
     try {
         const users = await pool.query('SELECT telegram_id FROM users WHERE is_registered = true');
@@ -2193,7 +2193,11 @@ app.post('/api/admin/broadcast', async (req, res) => {
 
         for (const user of users.rows) {
             try {
-                await bot.sendMessage(user.telegram_id, message);
+                if (imageUrl) {
+                    await bot.sendPhoto(user.telegram_id, imageUrl, { caption: message });
+                } else {
+                    await bot.sendMessage(user.telegram_id, message);
+                }
                 successCount++;
             } catch (err) {
                 console.error(`Failed to send broadcast to ${user.telegram_id}:`, err.message);
