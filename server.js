@@ -94,13 +94,25 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
     const referralCode = match ? match[1] : null;
 
     try {
+        console.log('--- Received /start command ---');
+        console.log('From User ID:', msg.from.id);
+        
         // Simple immediate response to verify receipt
-        await bot.sendMessage(chatId, "እንኳን ደህና መጡ! ጥያቄዎን እያስተናገድኩ ነው...");
+        try {
+            await bot.sendMessage(chatId, "እንኳን ደህና መጡ! ጥያቄዎን እያስተናገድኩ ነው...");
+        } catch (botErr) {
+            console.error('Initial sendMessage failed:', botErr.message);
+        }
         
         // Check if user is already registered
         let isRegistered = false;
-        const result = await pool.query('SELECT * FROM users WHERE telegram_id = $1', [telegramId]);
-        isRegistered = result.rows.length > 0;
+        try {
+            const result = await pool.query('SELECT * FROM users WHERE telegram_id = $1', [telegramId.toString()]);
+            isRegistered = result.rows.length > 0;
+        } catch (dbErr) {
+            console.error('Database query failed in /start:', dbErr.message);
+            throw dbErr; // Re-throw to be caught by main catch block
+        }
         
         console.log('User registration status:', isRegistered);
 
@@ -122,8 +134,13 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
             });
         }
     } catch (err) {
-        console.error('Error in /start command handler:', err);
-        await bot.sendMessage(chatId, "ይቅርታ፣ ችግር ተፈጥሯል። እባክዎ ጥቂት ቆይተው ይሞክሩ።");
+        console.error('CRITICAL: Error in /start command handler:', err);
+        console.error('Stack trace:', err.stack);
+        try {
+            await bot.sendMessage(chatId, "ይቅርታ፣ ችግር ተፈጥሯል። እባክዎ ጥቂት ቆይተው ይሞክሩ።\nError: " + err.message);
+        } catch (sendErr) {
+            console.error('Failed to send error message to user:', sendErr.message);
+        }
     }
 });
 
