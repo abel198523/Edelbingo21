@@ -291,10 +291,28 @@
                 <h2>የዊዝድሮው ጥያቄዎች</h2>
                 <p id="pendingWithdrawalsCount" style="color: #95a5a6; margin-top: 10px;">-</p>
             </div>
+            <div class="action-card" onclick="openSubScreen('broadcast-screen')">
+                <i>📢</i>
+                <h2>ብሮድካስት (Broadcast)</h2>
+                <p style="color: #95a5a6; margin-top: 10px;">ለሁሉም ተጠቃሚዎች መልእክት ይላኩ</p>
+            </div>
         </div>
     </div>
 
     <!-- Sub Screens -->
+    <div id="broadcast-screen" class="sub-screen">
+        <div class="sub-screen-header">
+            <button class="close-sub-btn" onclick="closeSubScreen('broadcast-screen')">← ተመለስ</button>
+            <h2>📢 ብሮድካስት (Broadcast)</h2>
+        </div>
+        <div class="sub-content">
+            <div class="section">
+                <textarea id="broadcastMessage" style="width: 100%; height: 150px; padding: 15px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(0, 0, 0, 0.3); color: #fff; font-size: 1rem; margin-bottom: 20px; outline: none;" placeholder="መልእክትዎን እዚህ ያስገቡ..."></textarea>
+                <button class="btn btn-approve" style="width: 100%; padding: 15px; font-size: 1.1rem;" onclick="sendBroadcast()">መልእክት ላክ (Send)</button>
+                <div id="broadcastStatus" style="margin-top: 20px; text-align: center;"></div>
+            </div>
+        </div>
+    </div>
     <div id="deposits-screen" class="sub-screen">
         <div class="sub-screen-header">
             <button class="close-sub-btn" onclick="closeSubScreen('deposits-screen')">← ተመለስ</button>
@@ -458,6 +476,36 @@
                 if (res.ok) loadWithdrawals();
                 else alert('ስህተት ተፈጥሯል');
             } catch (err) { alert('Error: ' + err.message); }
+        }
+        async function sendBroadcast() {
+            const message = document.getElementById('broadcastMessage').value.trim();
+            if (!message) {
+                alert('እባክዎ መልእክት ያስገቡ');
+                return;
+            }
+
+            if (!confirm('ይህ መልእክት ለሁሉም ተጠቃሚዎች ይላካል። እርግጠኛ ነዎት?')) return;
+
+            const statusDiv = document.getElementById('broadcastStatus');
+            statusDiv.innerHTML = '<div class="loading">በመላክ ላይ...</div>';
+            
+            try {
+                const response = await fetch('/api/admin/broadcast', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message })
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    statusDiv.innerHTML = `<div style="color: #2ecc71">✅ መልእክቱ በተሳካ ሁኔታ ተልኳል!<br>የደረሳቸው: ${result.successCount} | ያልደረሳቸው: ${result.failCount}</div>`;
+                    document.getElementById('broadcastMessage').value = '';
+                } else {
+                    statusDiv.innerHTML = `<div style="color: #e74c3c">❌ ስህተት ተፈጥሯል: ${result.error}</div>`;
+                }
+            } catch (err) {
+                statusDiv.innerHTML = '<div style="color: #e74c3c">❌ ስህተት ተፈጥሯል</div>';
+            }
         }
     </script>
 </body>
