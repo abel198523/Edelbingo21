@@ -1560,9 +1560,11 @@ async function gameLoop() {
             const confirmedPlayers = getConfirmedPlayersCount();
             if (confirmedPlayers >= 1) {
                 console.log('--- Starting game phase with', confirmedPlayers, 'players ---');
+                // Set phase FIRST to avoid race conditions in loops or callbacks
                 gameState.phase = 'game';
                 gameState.timeLeft = -1;
-                broadcast({ type: 'phase_change', phase: 'game' });
+                
+                // Then call startGamePhase which does broadcasting and setup
                 startGamePhase();
                 
                 // Ensure number calling starts
