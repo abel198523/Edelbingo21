@@ -1425,9 +1425,10 @@ async function startSelectionPhase() {
 function startGamePhase() {
     gameState.phase = 'game';
     gameState.timeLeft = -1;
-    gameState.calledNumbers = []; // Ensure numbers are cleared at start
+    gameState.calledNumbers = []; 
     initializeMasterNumbers();
     
+    // Explicit broadcast for phase change
     broadcast({
         type: 'phase_change',
         phase: 'game',
@@ -1560,19 +1561,18 @@ async function gameLoop() {
             const confirmedPlayers = getConfirmedPlayersCount();
             if (confirmedPlayers >= 1) {
                 console.log('--- Starting game phase with', confirmedPlayers, 'players ---');
-                // Set phase FIRST to avoid race conditions in loops or callbacks
+                // Ensure phase is set BEFORE calling startGamePhase
                 gameState.phase = 'game';
                 gameState.timeLeft = -1;
                 
-                // Then call startGamePhase which does broadcasting and setup
                 startGamePhase();
                 
-                // Ensure number calling starts
+                // Ensure number calling starts shortly after phase change
                 setTimeout(() => {
                     if (gameState.phase === 'game') {
                         startNumberCalling();
                     }
-                }, 2000);
+                }, 1000);
             } else {
                 console.log('--- No players confirmed, restarting selection ---');
                 startSelectionPhase();
