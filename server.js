@@ -1425,6 +1425,7 @@ async function startSelectionPhase() {
 function startGamePhase() {
     gameState.phase = 'game';
     gameState.timeLeft = -1;
+    gameState.calledNumbers = []; // Ensure numbers are cleared at start
     initializeMasterNumbers();
     
     broadcast({
@@ -1535,11 +1536,16 @@ function stopNumberCalling() {
 
 async function gameLoop() {
     if (gameState.phase === 'game' || gameState.phase === 'winner') {
+        // Double check: if we are in game phase but no numbers are being called, 
+        // it might be because the interval didn't start or was cleared.
+        if (gameState.phase === 'game' && !numberCallInterval) {
+            console.log('--- Restarting number calling for stuck game ---');
+            startNumberCalling();
+        }
         return;
     }
     
-    // Safety check: if we are in selection and have confirmed players, 
-    // but somehow gameLoop is still running or timeLeft is messed up
+    // Selection phase logic
     if (gameState.phase === 'selection') {
         gameState.timeLeft--;
         if (gameState.timeLeft % 5 === 0) syncGameStateToRedis();
@@ -1555,10 +1561,16 @@ async function gameLoop() {
             if (confirmedPlayers >= 1) {
                 console.log('--- Starting game phase with', confirmedPlayers, 'players ---');
                 gameState.phase = 'game';
-                gameState.timeLeft = -1; // Indicate active game
+                gameState.timeLeft = -1;
                 broadcast({ type: 'phase_change', phase: 'game' });
                 startGamePhase();
-                setTimeout(() => startNumberCalling(), 2000);
+                
+                // Ensure number calling starts
+                setTimeout(() => {
+                    if (gameState.phase === 'game') {
+                        startNumberCalling();
+                    }
+                }, 2000);
             } else {
                 console.log('--- No players confirmed, restarting selection ---');
                 startSelectionPhase();
