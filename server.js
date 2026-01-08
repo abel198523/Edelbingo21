@@ -1813,6 +1813,9 @@ wss.on('connection', (ws) => {
                             const winPattern = validateBingo(player.selectedCardId, gameState.calledNumbers);
                             
                             if (winPattern) {
+                                // Add .isWin property to maintain compatibility with existing logic
+                                winPattern.isWin = true;
+                                
                                 // Calculate prize (80% of pot, 20% fee)
                                 const totalPot = gameState.participants.length * player.stake;
                                 const prizeAmount = totalPot * 0.8;

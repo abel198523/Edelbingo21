@@ -1266,16 +1266,28 @@ function initializeBingoButton() {
 }
 
 function claimBingo() {
+    console.log('claimBingo called, selectedCardId:', selectedCardId);
     if (!selectedCardId) {
         alert('ካርድ አልመረጡም');
         return;
     }
     
-    if (socket && socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({
+    // Check both ws and socket variables
+    const currentSocket = (typeof ws !== 'undefined' && ws) || (typeof socket !== 'undefined' && socket);
+    
+    if (currentSocket && currentSocket.readyState === WebSocket.OPEN) {
+        console.log('Sending claim_bingo for card:', selectedCardId);
+        currentSocket.send(JSON.stringify({
             type: 'claim_bingo',
             cardId: selectedCardId
         }));
+    } else {
+        console.error('WebSocket not connected', { 
+            wsExists: typeof ws !== 'undefined', 
+            socketExists: typeof socket !== 'undefined',
+            readyState: currentSocket ? currentSocket.readyState : 'no socket'
+        });
+        alert('ከኢንተርኔት ጋር አልተገናኙም፣ እባክዎ ገጹን ሪፍሬሽ ያድርጉ');
     }
 }
 
