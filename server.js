@@ -1812,19 +1812,21 @@ wss.on('connection', (ws) => {
                 case 'claim_bingo':
                     if (gameState.phase === 'game' && player) {
                         if (player.isCardConfirmed && player.selectedCardId) {
+                            // Re-calculate confirmed players to ensure stake is accurate
+                            const confirmedPlayersCount = getConfirmedPlayersCount();
                             const winPattern = validateBingo(player.selectedCardId, gameState.calledNumbers);
                             
+                            console.log(`Bingo claim from ${player.username} (Card: ${player.selectedCardId}). Pattern found:`, winPattern);
+                            
                             if (winPattern) {
-                                // Add .isWin property to maintain compatibility with existing logic
                                 winPattern.isWin = true;
                                 
                                 // Calculate prize (80% of pot, 20% fee)
-                                const totalPot = gameState.participants.length * player.stake;
+                                const totalPot = confirmedPlayersCount * (gameState.stakeAmount || 10);
                                 const prizeAmount = totalPot * 0.8;
                                 
-                                console.log(`Bingo! User ${player.userId} won ${prizeAmount} ETB`);
+                                console.log(`Bingo Validated! User ${player.userId} won ${prizeAmount} ETB (Pot: ${totalPot})`);
                                 
-                                // Credit prize and start display
                                 Wallet.win(player.userId, prizeAmount, gameState.id).then(() => {
                                     startWinnerDisplay({
                                         userId: player.userId,
@@ -1835,7 +1837,6 @@ wss.on('connection', (ws) => {
                                     });
                                 }).catch(err => {
                                     console.error('Error crediting win prize:', err);
-                                    // Still show winner display even if DB update fails for some reason
                                     startWinnerDisplay({
                                         userId: player.userId,
                                         username: player.username,
@@ -1845,6 +1846,7 @@ wss.on('connection', (ws) => {
                                     });
                                 });
                             } else {
+                                console.log(`Bingo Rejected for ${player.username}. Numbers called: ${gameState.calledNumbers.length}`);
                                 ws.send(JSON.stringify({
                                     type: 'bingo_rejected',
                                     error: 'ቢንጎ ትክክል አይደለም'
