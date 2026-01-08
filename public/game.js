@@ -1271,8 +1271,8 @@ function claimBingo() {
         return;
     }
     
-    if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({
+    if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({
             type: 'claim_bingo',
             cardId: selectedCardId
         }));
