@@ -103,87 +103,73 @@ const BINGO_CARDS = {
 
 function validateBingo(cardId, calledNumbers) {
     const cardData = BINGO_CARDS[cardId];
-    if (!cardData) return false;
+    if (!cardData) return null;
     
-    // Normalize calledNumbers to a Set of numbers
     const calledSet = new Set(calledNumbers.map(n => Number(n)));
     
     // Check rows
     for (let row = 0; row < 5; row++) {
         let rowComplete = true;
+        let indices = [];
         for (let col = 0; col < 5; col++) {
             const num = Number(cardData[row][col]);
-            if (num === 0) continue; // Skip free space
-            if (!calledSet.has(num)) {
+            indices.push(row * 5 + col);
+            if (num !== 0 && !calledSet.has(num)) {
                 rowComplete = false;
                 break;
             }
         }
-        if (rowComplete) {
-            console.log(`Bingo valid: Row ${row} complete for card ${cardId}`);
-            return true;
-        }
+        if (rowComplete) return { type: 'row', index: row, indices };
     }
     
     // Check columns
     for (let col = 0; col < 5; col++) {
         let colComplete = true;
+        let indices = [];
         for (let row = 0; row < 5; row++) {
             const num = Number(cardData[row][col]);
-            if (num === 0) continue;
-            if (!calledSet.has(num)) {
+            indices.push(row * 5 + col);
+            if (num !== 0 && !calledSet.has(num)) {
                 colComplete = false;
                 break;
             }
         }
-        if (colComplete) {
-            console.log(`Bingo valid: Column ${col} complete for card ${cardId}`);
-            return true;
-        }
+        if (colComplete) return { type: 'column', index: col, indices };
     }
     
     // Check diagonals
     let diag1Complete = true;
+    let diag1Indices = [];
     let diag2Complete = true;
+    let diag2Indices = [];
     for (let i = 0; i < 5; i++) {
         const num1 = Number(cardData[i][i]);
-        const num2 = Number(cardData[i][4 - i]);
-        
+        diag1Indices.push(i * 5 + i);
         if (num1 !== 0 && !calledSet.has(num1)) diag1Complete = false;
+        
+        const num2 = Number(cardData[i][4 - i]);
+        diag2Indices.push(i * 5 + (4 - i));
         if (num2 !== 0 && !calledSet.has(num2)) diag2Complete = false;
     }
     
-    if (diag1Complete) {
-        console.log(`Bingo valid: Diagonal 1 complete for card ${cardId}`);
-        return true;
-    }
-    if (diag2Complete) {
-        console.log(`Bingo valid: Diagonal 2 complete for card ${cardId}`);
-        return true;
-    }
+    if (diag1Complete) return { type: 'diagonal', index: 1, indices: diag1Indices };
+    if (diag2Complete) return { type: 'diagonal', index: 2, indices: diag2Indices };
     
-    // Check 4 corners
-    const corners = [
-        Number(cardData[0][0]),
-        Number(cardData[0][4]),
-        Number(cardData[4][0]),
-        Number(cardData[4][4])
-    ];
-    
+    // Check corners
+    const cornerIndices = [0, 4, 20, 24];
     let cornersComplete = true;
-    for (const num of corners) {
+    for (const idx of cornerIndices) {
+        const r = Math.floor(idx / 5);
+        const c = idx % 5;
+        const num = Number(cardData[r][c]);
         if (num !== 0 && !calledSet.has(num)) {
             cornersComplete = false;
             break;
         }
     }
+    if (cornersComplete) return { type: 'corners', indices: cornerIndices };
     
-    if (cornersComplete) {
-        console.log(`Bingo valid: 4 Corners complete for card ${cardId}`);
-        return true;
-    }
-    
-    return false;
+    return null;
 }
 
 module.exports = { BINGO_CARDS, validateBingo };

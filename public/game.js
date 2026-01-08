@@ -787,6 +787,70 @@ function handleWebSocketMessage(data) {
 
 let calledNumbersSet = new Set();
 
+function getPatternName(type) {
+    const names = {
+        'row': 'አግዳሚ መስመር',
+        'column': 'ቁልቁል መስመር',
+        'diagonal': 'ዲያጎናል መስመር',
+        'corners': 'አራቱም ማዕዘን'
+    };
+    return names[type] || 'ቢንጎ';
+}
+
+function highlightWinningPattern(cardId, pattern) {
+    const cardContainer = document.getElementById('player-bingo-card');
+    const winnerCardContainer = document.getElementById('winner-card-display');
+    
+    // Function to apply highlight to a container's cells
+    const applyHighlight = (container, cardIdToRender) => {
+        if (!container) return;
+        
+        const cardData = BINGO_CARDS[cardIdToRender];
+        if (!cardData) return;
+        
+        container.innerHTML = '';
+        cardData.forEach((row, rowIndex) => {
+            row.forEach((num, colIndex) => {
+                const cell = document.createElement('div');
+                cell.className = 'player-card-cell';
+                const cellIndex = rowIndex * 5 + colIndex;
+                
+                if (rowIndex === 2 && colIndex === 2) {
+                    cell.classList.add('free-space', 'marked');
+                    cell.textContent = '★';
+                } else {
+                    cell.textContent = num;
+                    if (calledNumbersSet && calledNumbersSet.has(num)) {
+                        cell.classList.add('marked');
+                    }
+                }
+                
+                // Highlight if part of winning pattern
+                if (pattern.indices.includes(cellIndex)) {
+                    cell.classList.add('winning-cell');
+                    cell.style.backgroundColor = '#ffd700'; // Gold color
+                    cell.style.color = '#000';
+                    cell.style.transform = 'scale(1.1)';
+                    cell.style.boxShadow = '0 0 15px #ffd700';
+                    cell.style.zIndex = '1';
+                }
+                
+                container.appendChild(cell);
+            });
+        });
+    };
+
+    // Show winner's card in the overlay
+    if (winnerCardContainer) {
+        applyHighlight(winnerCardContainer, cardId);
+    }
+    
+    // If current player is the winner, highlight their card too
+    if (cardId === selectedCardId) {
+        applyHighlight(cardContainer, cardId);
+    }
+}
+
 function handlePhaseChange(data) {
     const gameScreen = document.getElementById('game-screen');
     const selectionScreen = document.getElementById('selection-screen');
@@ -935,7 +999,7 @@ function showBingoError(message) {
 }
 
 function showWinnerDisplay(winner) {
-    const isMe = winner.telegramId === currentUserId.toString();
+    const isMe = winner.userId === currentUserId; // Changed from telegramId to userId comparison
     
     let overlay = document.getElementById('bingo-modal-overlay');
     if (!overlay) {
@@ -968,7 +1032,7 @@ function showWinnerDisplay(winner) {
             background: #1c2235;
             width: 85%;
             max-width: 320px;
-            padding: 30px 20px;
+            padding: 20px;
             border-radius: 24px;
             border: 2px solid ${borderColor};
             text-align: center;
@@ -976,41 +1040,49 @@ function showWinnerDisplay(winner) {
             animation: modalPop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         ">
             <div style="
-                width: 70px;
-                height: 70px;
+                width: 60px;
+                height: 60px;
                 background: ${borderColor}1a;
                 border-radius: 50%;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                margin: 0 auto 20px;
+                margin: 0 auto 15px;
             ">
-                <span style="font-size: 35px;">${icon}</span>
+                <span style="font-size: 30px;">${icon}</span>
             </div>
-            <h2 style="color: #fff; margin-bottom: 10px; font-size: 1.5em;">${title}</h2>
-            <div style="color: #8890a6; line-height: 1.6; margin-bottom: 25px;">
-                <p style="font-size: 1.2em; color: #fff; font-weight: 800; margin-bottom: 5px;">${winner.username}</p>
+            <h2 style="color: #fff; margin-bottom: 5px; font-size: 1.4em;">${title}</h2>
+            <div style="color: #8890a6; line-height: 1.4; margin-bottom: 20px;">
+                <p style="font-size: 1.1em; color: #fff; font-weight: 800; margin-bottom: 5px;">${winner.username}</p>
                 <p>ካርድ: #${winner.cardId}</p>
-                ${winner.prize ? `<p style="color: ${isMe ? '#00d984' : '#fff'}; font-size: 1.3em; font-weight: 800; margin-top: 10px;">${winner.prize} ብር</p>` : ''}
+                <p style="color: #ffd700; font-size: 0.9em; margin-top: 5px;">የማሸነፊያ መስመር: ${getPatternName(winner.pattern.type)}</p>
+                <div id="winner-card-display" class="player-game-card" style="width: 150px; height: 150px; margin: 15px auto; font-size: 0.6em; gap: 2px;"></div>
+                ${winner.prize ? `<p style="color: ${isMe ? '#00d984' : '#fff'}; font-size: 1.2em; font-weight: 800; margin-top: 5px;">${winner.prize} ብር</p>` : ''}
             </div>
             <button onclick="document.getElementById('bingo-modal-overlay').style.display='none'" style="
                 background: ${actionColor};
                 color: #fff;
                 border: none;
-                padding: 12px 45px;
+                padding: 10px 40px;
                 border-radius: 12px;
                 font-weight: 800;
-                font-size: 1.1em;
+                font-size: 1em;
                 cursor: pointer;
                 box-shadow: 0 5px 15px ${actionColor}4d;
-                transition: transform 0.2s;
-            " onactive="this.style.transform='scale(0.95)'">እሺ</button>
+            ">እሺ</button>
         </div>
     `;
 
     overlay.style.display = 'flex';
+    
+    // Highlight winning pattern on the small card display
+    if (winner.pattern) {
+        highlightWinningPattern(winner.cardId, winner.pattern);
+    }
 
     if (isMe && typeof confetti === 'function') {
+        // ... (confetti code remains same)
+
         const duration = 5 * 1000;
         const animationEnd = Date.now() + duration;
         const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 30000 };

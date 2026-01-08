@@ -1810,14 +1810,14 @@ wss.on('connection', (ws) => {
                 case 'claim_bingo':
                     if (gameState.phase === 'game' && player) {
                         if (player.isCardConfirmed && player.selectedCardId) {
-                            // Server-side validation - don't trust client isValid
-                            const isValidBingo = validateBingo(player.selectedCardId, gameState.calledNumbers);
+                            const winPattern = validateBingo(player.selectedCardId, gameState.calledNumbers);
                             
-                            if (isValidBingo) {
+                            if (winPattern) {
                                 startWinnerDisplay({
                                     userId: player.userId,
                                     username: player.username,
-                                    cardId: player.selectedCardId
+                                    cardId: player.selectedCardId,
+                                    pattern: winPattern
                                 });
                             } else {
                                 ws.send(JSON.stringify({
