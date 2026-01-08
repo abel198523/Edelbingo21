@@ -2669,37 +2669,47 @@ app.post('/api/admin/withdrawals/:id/approve', async (req, res) => {
 // Telebirr Webhook Integration
 app.post('/telebirr-webhook', async (req, res) => {
     try {
+        // Extract raw string from req.body.message
         const rawData = req.body.message;
         console.log("Raw telebirr data received:", rawData);
 
-        if (!rawData) return res.status(400).send("No data received");
+        if (!rawData) {
+            console.error("Webhook Error: No data received");
+            return res.status(400).send("No data received");
+        }
 
+        // Use .split('|') to separate the string into three parts
         const parts = rawData.split('|');
-        if (parts.length < 3) return res.status(400).send("Invalid data format");
+        if (parts.length < 3) {
+            console.error("Webhook Error: Invalid data format", rawData);
+            return res.status(400).send("Invalid data format");
+        }
 
-        const message = parts[0];   
-        const sender = parts[1];    
-        const secretKey = parts[2]; 
+        const messageText = parts[0];   // The Telebirr SMS text
+        const sender = parts[1];        // The sender phone number
+        const secretKey = parts[2];     // Secret key
 
+        // Security: Verify that the secret key matches "85Ethiopia@"
         if (secretKey !== "85Ethiopia@") {
-            console.log("Invalid Secret Key!");
+            console.error("Webhook Security Error: Invalid Secret Key!");
             return res.status(401).send("Invalid Secret Key");
         }
 
-        if (!sender.includes("127") && !sender.includes("telebirr")) {
-            console.log("Ignoring message from:", sender);
-            return res.status(200).send("Ignored");
-        }
+        // Data Extraction (Regex)
+        // Extract the Amount using: /([\d,.]+)\s*ብር/
+        const amountMatch = messageText.match(/([\d,.]+)\s*ብር/);
+        // Extract the Transaction ID using: /ቁጥርዎ\s*([A-Z0-9]+)/
+        const idMatch = messageText.match(/ቁጥርዎ\s*([A-Z0-9]+)/);
 
-        const amountMatch = message.match(/([\d,.]+)\s*ብር/);
-        const transactionId = (message.match(/ቁጥርዎ\s*([A-Z0-9]+)/) || [])[1];
-
-        if (amountMatch && transactionId) {
+        if (amountMatch && idMatch) {
             const amount = parseFloat(amountMatch[1].replace(/,/g, ''));
-            console.log(`Extracted: Amount=${amount}, ID=${transactionId}`);
+            const transactionId = idMatch[1];
+            console.log(`Webhook Debug: Extracted Amount=${amount}, TransactionID=${transactionId} from sender ${sender}`);
 
+            // Database Update
+            // Find a 'pending' deposit with the extracted Transaction ID
             const depositCheck = await pool.query(
-                'SELECT d.*, u.telegram_id as user_telegram_id FROM deposits d JOIN users u ON d.user_id = u.id WHERE d.transaction_id = $1 AND d.status = $2',
+                'SELECT d.*, u.telegram_id as user_telegram_id, u.username FROM deposits d JOIN users u ON d.user_id = u.id WHERE d.transaction_id = $1 AND d.status = $2',
                 [transactionId, 'pending']
             );
 
@@ -2709,32 +2719,55 @@ app.post('/telebirr-webhook', async (req, res) => {
                 const client = await pool.connect();
                 try {
                     await client.query('BEGIN');
+                    
+                    // Update status to 'confirmed' (mapped from 'completed' in user request to match existing schema status)
                     await client.query('UPDATE deposits SET status = $1, confirmed_at = NOW() WHERE id = $2', ['confirmed', d.id]);
+                    
+                    // Add the extracted Amount to the user's balance
                     await client.query('UPDATE wallets SET balance = balance + $1, updated_at = NOW() WHERE user_id = $2', [amount, d.user_id]);
+                    
+                    // Record transaction
                     await client.query('INSERT INTO transactions (user_id, type, amount, description) VALUES ($1, $2, $3, $4)', 
                         [d.user_id, 'deposit', amount, `Automated Telebirr Deposit (ID: ${transactionId})`]);
-                    await client.query('COMMIT');
                     
-                    if (d.user_telegram_id && bot) {
-                        bot.sendMessage(d.user_telegram_id, `✅ የቴሌብር ክፍያዎ በራስ-ሰር ተረጋግጧል!\n\n💵 ${amount} ብር ወደ ሒሳብዎ ተጨምሯል።`).catch(err => console.error('Bot error:', err));
+                    await client.query('COMMIT');
+                    console.log(`Webhook Success: Processed deposit for ${d.username}, Amount: ${amount}`);
+
+                    // Admin Alert: Send a Telegram message to Admin
+                    if (bot && ADMIN_CHAT_ID) {
+                        bot.sendMessage(ADMIN_CHAT_ID, 
+                            `🔔 <b>አዲስ አውቶማቲክ ዲፖዚት!</b>\n\n` +
+                            `👤 ተጠቃሚ: ${d.username}\n` +
+                            `💵 መጠን: ${amount} ETB\n` +
+                            `🆔 ትራንዛክሽን: ${transactionId}\n` +
+                            `✅ በራስ-ሰር ተረጋግጧል።`,
+                            { parse_mode: 'HTML' }
+                        ).catch(err => console.error('Admin notify error:', err));
                     }
+
+                    // Notify User
+                    if (d.user_telegram_id && bot) {
+                        bot.sendMessage(d.user_telegram_id, `✅ የቴሌብር ክፍያዎ በራስ-ሰር ተረጋግጧል!\n\n💵 ${amount} ብር ወደ ሒሳብዎ ተጨምሯል።`).catch(err => console.error('User notify error:', err));
+                    }
+
                     return res.status(200).send("Deposit Processed Successfully");
                 } catch (e) {
                     await client.query('ROLLBACK');
+                    console.error("Webhook Database Transaction Error:", e);
                     throw e;
                 } finally {
                     client.release();
                 }
             } else {
-                console.log(`No pending deposit found for transaction ID: ${transactionId}`);
+                console.log(`Webhook Info: No pending deposit found for transaction ID: ${transactionId}`);
                 return res.status(200).send("No matching pending deposit found");
             }
         } else {
-            console.log("Could not extract data from Amharic text");
+            console.error("Webhook Error: Could not extract data from text:", messageText);
             return res.status(400).send("Data extraction failed");
         }
     } catch (error) {
-        console.error("Webhook Error:", error);
+        console.error("Webhook Internal Error:", error);
         res.status(500).send("Internal Server Error");
     }
 });
