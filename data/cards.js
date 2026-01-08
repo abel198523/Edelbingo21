@@ -106,6 +106,7 @@ function validateBingo(cardId, calledNumbers) {
     if (!cardData) return null;
     
     const calledSet = new Set(calledNumbers.map(n => Number(n)));
+    calledSet.add(0); // FREE space is always considered called
     
     // Check rows
     for (let row = 0; row < 5; row++) {
