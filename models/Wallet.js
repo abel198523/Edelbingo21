@@ -165,6 +165,48 @@ class Wallet {
         }
     }
 
+    static async deductBalance(userId, amount, description = 'Deduction', gameId = null) {
+        const client = await db.pool.connect();
+        
+        try {
+            await client.query('BEGIN');
+            
+            const balanceResult = await client.query(
+                `SELECT balance FROM wallets WHERE user_id = $1 FOR UPDATE`,
+                [userId]
+            );
+            
+            const balanceBefore = parseFloat(balanceResult.rows[0]?.balance || 0);
+            
+            if (balanceBefore < amount) {
+                await client.query('ROLLBACK');
+                return { success: false, error: 'Insufficient balance' };
+            }
+            
+            const balanceAfter = balanceBefore - parseFloat(amount);
+            
+            await client.query(
+                `UPDATE wallets SET balance = $1, updated_at = CURRENT_TIMESTAMP WHERE user_id = $2`,
+                [balanceAfter, userId]
+            );
+            
+            await client.query(
+                `INSERT INTO transactions (user_id, type, amount, balance_before, balance_after, description, game_id)
+                 VALUES ($1, 'stake', $2, $3, $4, $5, $6)`,
+                [userId, amount, balanceBefore, balanceAfter, description, gameId]
+            );
+            
+            await client.query('COMMIT');
+            
+            return { success: true, balance: balanceAfter };
+        } catch (err) {
+            await client.query('ROLLBACK');
+            throw err;
+        } finally {
+            client.release();
+        }
+    }
+
     static async getTransactionHistory(userId, limit = 50) {
         const result = await db.query(
             `SELECT * FROM transactions 
