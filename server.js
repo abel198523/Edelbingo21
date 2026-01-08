@@ -1812,12 +1812,32 @@ wss.on('connection', (ws) => {
                         if (player.isCardConfirmed && player.selectedCardId) {
                             const winPattern = validateBingo(player.selectedCardId, gameState.calledNumbers);
                             
-                            if (winPattern) {
-                                startWinnerDisplay({
-                                    userId: player.userId,
-                                    username: player.username,
-                                    cardId: player.selectedCardId,
-                                    pattern: winPattern
+                            if (winPattern.isWin) {
+                                // Calculate prize (90% of pot, 10% fee)
+                                const totalPot = gameState.participants.length * player.stake;
+                                const prizeAmount = totalPot * 0.9;
+                                
+                                console.log(`Bingo! User ${player.userId} won ${prizeAmount} ETB`);
+                                
+                                // Credit prize and start display
+                                Wallet.win(player.userId, prizeAmount, gameState.id).then(() => {
+                                    startWinnerDisplay({
+                                        userId: player.userId,
+                                        username: player.username,
+                                        cardId: player.selectedCardId,
+                                        pattern: winPattern,
+                                        prize: prizeAmount
+                                    });
+                                }).catch(err => {
+                                    console.error('Error crediting win prize:', err);
+                                    // Still show winner display even if DB update fails for some reason
+                                    startWinnerDisplay({
+                                        userId: player.userId,
+                                        username: player.username,
+                                        cardId: player.selectedCardId,
+                                        pattern: winPattern,
+                                        prize: prizeAmount
+                                    });
                                 });
                             } else {
                                 ws.send(JSON.stringify({
