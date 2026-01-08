@@ -1443,6 +1443,25 @@ async function startWinnerDisplay(winnerInfo) {
     gameState.timeLeft = WINNER_DISPLAY_TIME;
     gameState.winner = winnerInfo;
     
+    // Start countdown for winner display phase
+    const winnerTimer = setInterval(() => {
+        if (gameState.phase === 'winner') {
+            gameState.timeLeft--;
+            broadcast({
+                type: 'timer_update',
+                phase: 'winner',
+                timeLeft: gameState.timeLeft
+            });
+            
+            if (gameState.timeLeft <= 0) {
+                clearInterval(winnerTimer);
+                startSelectionPhase();
+            }
+        } else {
+            clearInterval(winnerTimer);
+        }
+    }, 1000);
+
     try {
         if (currentGameId && winnerInfo.userId) {
             const game = await Game.setWinner(
@@ -1527,6 +1546,9 @@ function startNumberCalling() {
         }
     }, 3000);
 }
+
+// Global game loop for selection phase
+setInterval(gameLoop, 1000);
 
 function stopNumberCalling() {
     if (numberCallInterval) {
