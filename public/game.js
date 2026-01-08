@@ -851,6 +851,25 @@ function highlightWinningPattern(cardId, pattern) {
     }
 }
 
+function showGameStartNotification() {
+    let overlay = document.getElementById('game-start-notif');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'game-start-notif';
+        overlay.className = 'game-start-overlay';
+        overlay.innerHTML = `
+            <div class="game-start-content">
+                <div class="game-start-text">ጨዋታው ተጀምሯል! 🎮</div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+    }
+    overlay.style.display = 'block';
+    setTimeout(() => {
+        overlay.style.display = 'none';
+    }, 3000);
+}
+
 function handlePhaseChange(data) {
     const gameScreen = document.getElementById('game-screen');
     const selectionScreen = document.getElementById('selection-screen');
@@ -880,6 +899,7 @@ function handlePhaseChange(data) {
             if (status) status.textContent = 'ካርድ ይምረጡ';
         }
     } else if (data.phase === 'game') {
+        showGameStartNotification();
         // Game is starting - transition from selection to game for ALL players
         if (selectionScreen) selectionScreen.style.display = 'none';
         if (landingScreen) landingScreen.style.display = 'none';
@@ -1059,17 +1079,7 @@ function showWinnerDisplay(winner) {
                 <div id="winner-card-display" class="player-game-card" style="width: 150px; height: 150px; margin: 15px auto; font-size: 0.6em; gap: 2px;"></div>
                 ${winner.prize ? `<p style="color: ${isMe ? '#00d984' : '#fff'}; font-size: 1.2em; font-weight: 800; margin-top: 5px;">${winner.prize} ብር</p>` : ''}
             </div>
-            <button onclick="document.getElementById('bingo-modal-overlay').style.display='none'" style="
-                background: ${actionColor};
-                color: #fff;
-                border: none;
-                padding: 10px 40px;
-                border-radius: 12px;
-                font-weight: 800;
-                font-size: 1em;
-                cursor: pointer;
-                box-shadow: 0 5px 15px ${actionColor}4d;
-            ">እሺ</button>
+            <div id="return-countdown" class="return-timer">ወደ ካርድ መምረጫ ለመመለስ 5 ሰከንድ ቀርቷል...</div>
         </div>
     `;
 
@@ -1079,6 +1089,29 @@ function showWinnerDisplay(winner) {
     if (winner.pattern) {
         highlightWinningPattern(winner.cardId, winner.pattern);
     }
+
+    // Start 5 second countdown
+    let timeLeft = 5;
+    const countdownEl = document.getElementById('return-countdown');
+    const interval = setInterval(() => {
+        timeLeft--;
+        if (countdownEl) {
+            countdownEl.textContent = `ወደ ካርድ መምረጫ ለመመለስ ${timeLeft} ሰከንድ ቀርቷል...`;
+        }
+        if (timeLeft <= 0) {
+            clearInterval(interval);
+            overlay.style.display = 'none';
+            // Return to selection screen
+            const gameScreen = document.getElementById('game-screen');
+            const selectionScreen = document.getElementById('selection-screen');
+            if (gameScreen) gameScreen.style.display = 'none';
+            if (selectionScreen) selectionScreen.style.display = 'flex';
+            cardConfirmed = false;
+            selectedCardId = null;
+            generateCardSelection();
+            updateBackButtonVisibility();
+        }
+    }, 1000);
 
     if (isMe && typeof confetti === 'function') {
         // ... (confetti code remains same)

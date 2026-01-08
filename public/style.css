@@ -1328,3 +1328,47 @@ html, body {
     background: #a855f7;
     color: #fff;
 }
+
+.game-start-overlay {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 25000;
+    pointer-events: none;
+    display: none;
+    text-align: center;
+    width: 100%;
+}
+
+.game-start-content {
+    background: linear-gradient(135deg, rgba(0, 242, 255, 0.95), rgba(112, 0, 255, 0.95));
+    padding: 30px 50px;
+    border-radius: 50px;
+    box-shadow: 0 0 50px rgba(0, 242, 255, 0.5);
+    display: inline-block;
+    animation: startNotifPop 3s ease-in-out forwards;
+}
+
+.game-start-text {
+    color: white;
+    font-size: 2em;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+}
+
+@keyframes startNotifPop {
+    0% { transform: scale(0.5); opacity: 0; }
+    15% { transform: scale(1.1); opacity: 1; }
+    20% { transform: scale(1); opacity: 1; }
+    80% { transform: scale(1); opacity: 1; }
+    100% { transform: scale(1.5); opacity: 0; }
+}
+
+.return-timer {
+    font-size: 0.9em;
+    color: #8890a6;
+    margin-top: 15px;
+}
