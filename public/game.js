@@ -329,6 +329,15 @@ function generateCardSelection() {
     const grid = document.getElementById('card-selection-grid');
     if (!grid) return;
     
+    // Add timer display if not exists
+    let timerContainer = document.getElementById('selection-timer-container');
+    if (!timerContainer) {
+        timerContainer = document.createElement('div');
+        timerContainer.id = 'selection-timer-container';
+        timerContainer.style.cssText = 'text-align: center; margin-bottom: 15px; font-weight: bold; font-size: 1.2em; color: #ffcc00;';
+        grid.parentNode.insertBefore(timerContainer, grid);
+    }
+    
     grid.innerHTML = '';
     
     for (let cardId = 1; cardId <= 100; cardId++) {
@@ -737,6 +746,18 @@ function handleWebSocketMessage(data) {
         case 'timer_update':
             updateTimerDisplay(data.timeLeft);
             updatePhaseDisplay(data.phase);
+            
+            // Show selection countdown if in selection phase
+            if (data.phase === 'selection') {
+                const timerContainer = document.getElementById('selection-timer-container');
+                if (timerContainer) {
+                    timerContainer.textContent = `ጨዋታው ለመጀመር ${data.timeLeft} ሰከንድ ቀርቷል...`;
+                    timerContainer.style.display = 'block';
+                }
+            } else {
+                const timerContainer = document.getElementById('selection-timer-container');
+                if (timerContainer) timerContainer.style.display = 'none';
+            }
             
             if (data.participantsCount !== undefined) {
                 const playerCount = document.getElementById('player-count');
