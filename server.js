@@ -2664,6 +2664,79 @@ app.post('/api/admin/withdrawals/:id/approve', async (req, res) => {
     }
 });
 
+// Telebirr Webhook Integration
+app.post('/telebirr-webhook', async (req, res) => {
+    try {
+        const rawData = req.body.message;
+        console.log("Raw telebirr data received:", rawData);
+
+        if (!rawData) return res.status(400).send("No data received");
+
+        const parts = rawData.split('|');
+        if (parts.length < 3) return res.status(400).send("Invalid data format");
+
+        const message = parts[0];   
+        const sender = parts[1];    
+        const secretKey = parts[2]; 
+
+        if (secretKey !== "85Ethiopia@") {
+            console.log("Invalid Secret Key!");
+            return res.status(401).send("Invalid Secret Key");
+        }
+
+        if (!sender.includes("127") && !sender.includes("telebirr")) {
+            console.log("Ignoring message from:", sender);
+            return res.status(200).send("Ignored");
+        }
+
+        const amountMatch = message.match(/([\d,.]+)\s*ብር/);
+        const transactionId = (message.match(/ቁጥርዎ\s*([A-Z0-9]+)/) || [])[1];
+
+        if (amountMatch && transactionId) {
+            const amount = parseFloat(amountMatch[1].replace(/,/g, ''));
+            console.log(`Extracted: Amount=${amount}, ID=${transactionId}`);
+
+            const depositCheck = await pool.query(
+                'SELECT d.*, u.telegram_id as user_telegram_id FROM deposits d JOIN users u ON d.user_id = u.id WHERE d.transaction_id = $1 AND d.status = $2',
+                [transactionId, 'pending']
+            );
+
+            if (depositCheck.rows.length > 0) {
+                const d = depositCheck.rows[0];
+                
+                const client = await pool.connect();
+                try {
+                    await client.query('BEGIN');
+                    await client.query('UPDATE deposits SET status = $1, confirmed_at = NOW() WHERE id = $2', ['confirmed', d.id]);
+                    await client.query('UPDATE wallets SET balance = balance + $1, updated_at = NOW() WHERE user_id = $2', [amount, d.user_id]);
+                    await client.query('INSERT INTO transactions (user_id, type, amount, description) VALUES ($1, $2, $3, $4)', 
+                        [d.user_id, 'deposit', amount, `Automated Telebirr Deposit (ID: ${transactionId})`]);
+                    await client.query('COMMIT');
+                    
+                    if (d.user_telegram_id && bot) {
+                        bot.sendMessage(d.user_telegram_id, `✅ የቴሌብር ክፍያዎ በራስ-ሰር ተረጋግጧል!\n\n💵 ${amount} ብር ወደ ሒሳብዎ ተጨምሯል።`).catch(err => console.error('Bot error:', err));
+                    }
+                    return res.status(200).send("Deposit Processed Successfully");
+                } catch (e) {
+                    await client.query('ROLLBACK');
+                    throw e;
+                } finally {
+                    client.release();
+                }
+            } else {
+                console.log(`No pending deposit found for transaction ID: ${transactionId}`);
+                return res.status(200).send("No matching pending deposit found");
+            }
+        } else {
+            console.log("Could not extract data from Amharic text");
+            return res.status(400).send("Data extraction failed");
+        }
+    } catch (error) {
+        console.error("Webhook Error:", error);
+        res.status(500).send("Internal Server Error");
+    }
+});
+
 // Reject withdrawal via API
 app.post('/api/admin/withdrawals/:id/reject', async (req, res) => {
     try {
