@@ -724,6 +724,9 @@ bot.on('message', async (msg) => {
                      )`,
                     [finalCode, normalizedInputCode]
                 );
+                
+                console.log(`Checking existing deposit for code: ${finalCode}, normalized: ${normalizedInputCode}`);
+                console.log(`Found ${existingCheck.rows.length} existing records`);
 
                 if (existingCheck.rows.length > 0) {
                     const existing = existingCheck.rows[0];
