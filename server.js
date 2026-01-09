@@ -695,6 +695,34 @@ bot.on('message', async (msg) => {
             }
 
             try {
+                // Check if this transaction was already received via webhook (unmatched status)
+                const unmatchedCheck = await pool.query(
+                    'SELECT * FROM deposits WHERE confirmation_code = $1 AND status = $2',
+                    [finalCode, 'unmatched']
+                );
+
+                if (unmatchedCheck.rows.length > 0) {
+                    const unmatchedDep = unmatchedCheck.rows[0];
+                    // Auto-approve since we already have the webhook data
+                    await pool.query('BEGIN');
+                    await pool.query(
+                        'UPDATE wallets SET balance = balance + $1 WHERE user_id = $2',
+                        [unmatchedDep.amount, state.userId]
+                    );
+                    await pool.query(
+                        'UPDATE deposits SET user_id = $1, status = $2, confirmed_at = NOW() WHERE id = $3',
+                        [state.userId, 'confirmed', unmatchedDep.id]
+                    );
+                    await pool.query('COMMIT');
+
+                    userStates.delete(telegramId);
+                    await bot.sendMessage(chatId, 
+                        `✅ ዲፖዚትዎ በቅጽበት ተረጋግጧል!\n\n💵 መጠን: ${unmatchedDep.amount} ብር\n🔑 ኮድ: ${finalCode}\n\nሒሳብዎ ላይ ተጨምሯል። መልካም ጨዋታ!`,
+                        { reply_markup: getMainKeyboard(telegramId) }
+                    );
+                    return;
+                }
+
                 await pool.query(
                     'INSERT INTO deposits (user_id, amount, payment_method, confirmation_code, status) VALUES ($1, $2, $3, $4, $5)',
                     [state.userId, finalAmount, state.paymentMethod, finalCode, 'pending']
@@ -2357,9 +2385,12 @@ app.post('/telebirr-webhook', async (req, res) => {
                 console.log(`Transaction ${transactionId} already processed with status: ${deposit.status}`);
             }
         } else {
-            console.log(`Transaction ${transactionId} not found in deposits. Logging for manual/future verification.`);
-            console.log('--- MANUAL VERIFICATION NEEDED ---');
-            console.log(`Transaction ID: ${transactionId}, Amount: ${amount}, Message: ${message}`);
+            console.log(`Transaction ${transactionId} not found in deposits. Saving as unmatched for future user claim.`);
+            // Save unmatched deposit for future claim
+            await pool.query(
+                'INSERT INTO deposits (user_id, amount, payment_method, confirmation_code, status, created_at) VALUES ($1, $2, $3, $4, $5, NOW())',
+                [null, amount, 'telebirr', transactionId, 'unmatched']
+            );
         }
 
         res.status(200).json({ success: true });
