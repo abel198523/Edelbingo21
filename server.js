@@ -2302,6 +2302,10 @@ app.post('/telebirr-webhook', async (req, res) => {
     console.log(`Extracted Amharic format: ID=${transactionId}, Amount=${amount}`);
 
     try {
+        // Log all pending deposits for debugging
+        const allPending = await pool.query('SELECT confirmation_code FROM deposits WHERE status = $1', ['pending']);
+        console.log('Pending deposits in DB:', allPending.rows.map(r => r.confirmation_code));
+
         // Check if transaction exists - allow for slight variations or trailing characters
         const depositCheck = await pool.query(
             'SELECT * FROM deposits WHERE (confirmation_code = $1 OR confirmation_code = LEFT($1, LENGTH(confirmation_code)) OR LEFT(confirmation_code, LENGTH($1)) = $1) AND status = $2',
