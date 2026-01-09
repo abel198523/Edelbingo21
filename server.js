@@ -1721,9 +1721,11 @@ wss.on('connection', (ws) => {
                     const player = gameState.players.get(existingPlayerId);
                     player.ws = ws; // Update the socket reference
                     
+                    // Important: Send all recovery data including telegramId
                     ws.send(JSON.stringify({
                         type: 'init',
                         playerId: existingPlayerId,
+                        telegramId: telegramId,
                         phase: gameState.phase,
                         timeLeft: gameState.timeLeft,
                         calledNumbers: gameState.calledNumbers,

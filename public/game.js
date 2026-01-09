@@ -622,6 +622,23 @@ async function loadTransactions() {
     }
 }
 
+function showGameScreen() {
+    const screens = ['landing-screen', 'selection-screen', 'profile-screen', 'wallet-screen'];
+    screens.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
+    
+    const gameScreen = document.getElementById('game-screen');
+    if (gameScreen) gameScreen.style.display = 'flex';
+    
+    if (selectedCardId) {
+        renderPlayerCard(selectedCardId);
+    }
+    updatePhaseDisplay('game');
+    updateBackButtonVisibility();
+}
+
 function updateWalletDisplay(balance) {
     const walletElement = document.getElementById('main-wallet-value');
     if (walletElement) {
@@ -704,50 +721,33 @@ function handleWebSocketMessage(data) {
     switch (data.type) {
         case 'init':
             console.log('Game initialized:', data);
-            updateTimerDisplay(data.timeLeft);
-            updatePhaseDisplay(data.phase);
-            renderMasterGrid();
             
-            // Session Recovery: Restore selected card if available
+            // Session Recovery: Restore selected card and show rejoin overlay if in game phase
             if (data.selectedCardId) {
                 selectedCardId = data.selectedCardId;
                 cardConfirmed = data.isCardConfirmed || false;
                 
                 if (data.phase === 'game') {
-                    // Show rejoin overlay for players who were already in the game
                     const rejoinOverlay = document.getElementById('rejoin-overlay');
                     const rejoinBtn = document.getElementById('rejoin-btn');
                     
-                    if (rejoinOverlay && rejoinBtn) {
+                    if (rejoinOverlay) {
                         rejoinOverlay.style.display = 'flex';
-                        rejoinBtn.onclick = function() {
-                            rejoinOverlay.style.display = 'none';
-                            const landingScreen = document.getElementById('landing-screen');
-                            const selectionScreen = document.getElementById('selection-screen');
-                            const gameScreen = document.getElementById('game-screen');
-                            
-                            if (landingScreen) landingScreen.style.display = 'none';
-                            if (selectionScreen) selectionScreen.style.display = 'none';
-                            if (gameScreen) gameScreen.style.display = 'flex';
-                            
-                            renderPlayerCard(selectedCardId);
-                            updatePhaseDisplay('game');
-                        };
+                        if (rejoinBtn) {
+                            rejoinBtn.onclick = function() {
+                                rejoinOverlay.style.display = 'none';
+                                showGameScreen();
+                            };
+                        }
                     } else {
-                        // Fallback if overlay elements are missing
-                        const landingScreen = document.getElementById('landing-screen');
-                        const selectionScreen = document.getElementById('selection-screen');
-                        const gameScreen = document.getElementById('game-screen');
-                        
-                        if (landingScreen) landingScreen.style.display = 'none';
-                        if (selectionScreen) selectionScreen.style.display = 'none';
-                        if (gameScreen) gameScreen.style.display = 'flex';
-                        
-                        renderPlayerCard(selectedCardId);
-                        updatePhaseDisplay('game');
+                        showGameScreen();
                     }
                 }
             }
+            
+            updateTimerDisplay(data.timeLeft);
+            updatePhaseDisplay(data.phase);
+            renderMasterGrid();
             
             if (data.balance !== undefined) {
                 updateWalletDisplay(data.balance);
