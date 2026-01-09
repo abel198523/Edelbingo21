@@ -716,6 +716,7 @@ bot.on('message', async (msg) => {
                 const normalizedInputCode = finalCode.replace(/[^A-Z0-9]/gi, '').toUpperCase();
 
                 // Step 2: Check for ANY existing record with this code (prevent duplicates)
+                console.log(`Checking existing deposit for code: ${finalCode}, normalized: ${normalizedInputCode}`);
                 const existingCheck = await pool.query(
                     `SELECT * FROM deposits 
                      WHERE (
@@ -725,11 +726,11 @@ bot.on('message', async (msg) => {
                     [finalCode, normalizedInputCode]
                 );
                 
-                console.log(`Checking existing deposit for code: ${finalCode}, normalized: ${normalizedInputCode}`);
                 console.log(`Found ${existingCheck.rows.length} existing records`);
 
                 if (existingCheck.rows.length > 0) {
                     const existing = existingCheck.rows[0];
+                    console.log(`Existing record status: ${existing.status}`);
                     
                     if (existing.status === 'confirmed') {
                         await bot.sendMessage(chatId, '⚠️ ይህ የግብይት ቁጥር ቀደም ብሎ ጥቅም ላይ ውሏል።');
