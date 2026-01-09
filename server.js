@@ -679,10 +679,25 @@ bot.on('message', async (msg) => {
         } else if (state.step === 'confirmation_code') {
             state.confirmationCode = text;
             
+            // ✅ IMPROVED: Automated parsing for direct SMS pastes
+            const amountPattern = /([\d,.]+)\s*ብር/;
+            const txIdPattern = /ቁጥርዎ\s*([A-Z0-9]+)/;
+            const amountMatch = text.match(amountPattern);
+            const txIdMatch = text.match(txIdPattern);
+            
+            let finalAmount = state.amount;
+            let finalCode = text;
+            
+            if (txIdMatch && amountMatch) {
+                finalCode = txIdMatch[1].trim();
+                finalAmount = parseFloat(amountMatch[1].replace(/,/g, ''));
+                console.log(`Auto-parsed deposit from direct paste: ID=${finalCode}, Amount=${finalAmount}`);
+            }
+
             try {
                 await pool.query(
                     'INSERT INTO deposits (user_id, amount, payment_method, confirmation_code, status) VALUES ($1, $2, $3, $4, $5)',
-                    [state.userId, state.amount, state.paymentMethod, state.confirmationCode, 'pending']
+                    [state.userId, finalAmount, state.paymentMethod, finalCode, 'pending']
                 );
                 
                 const userResult = await pool.query(
@@ -694,15 +709,15 @@ bot.on('message', async (msg) => {
                 await notifyAdmin(
                     `🔔 <b>አዲስ ዲፖዚት ጥያቄ</b>\n\n` +
                     `👤 ተጠቃሚ: ${username}\n` +
-                    `💵 መጠን: ${state.amount} ብር\n` +
+                    `💵 መጠን: ${finalAmount} ብር\n` +
                     `💳 ዘዴ: ${state.paymentMethod === 'telebirr' ? 'Telebirr' : 'CBE Birr'}\n` +
-                    `🔑 ኮድ: ${state.confirmationCode}\n` +
+                    `🔑 ኮድ: ${finalCode}\n` +
                     `📅 ቀን: ${new Date().toLocaleString('am-ET')}`,
                     {
                         reply_markup: {
                             inline_keyboard: [
                                 [
-                                    { text: '✅ ፍቀድ (Approve)', callback_data: `approve_dep_${state.userId}_${state.amount}_${state.paymentMethod}` },
+                                    { text: '✅ ፍቀድ (Approve)', callback_data: `approve_dep_${state.userId}_${finalAmount}_${state.paymentMethod}` },
                                     { text: '❌ ውድቅ (Reject)', callback_data: `reject_dep_${state.userId}` }
                                 ]
                             ]
@@ -713,9 +728,9 @@ bot.on('message', async (msg) => {
                 userStates.delete(telegramId);
                 await bot.sendMessage(chatId, 
                     `✅ የዲፖዚት ጥያቄዎ ተልኳል!\n\n` +
-                    `💵 መጠን: ${state.amount} ብር\n` +
+                    `💵 መጠን: ${finalAmount} ብር\n` +
                     `💳 ዘዴ: ${state.paymentMethod === 'telebirr' ? 'Telebirr' : 'CBE Birr'}\n` +
-                    `🔑 ኮድ: ${state.confirmationCode}\n\n` +
+                    `🔑 ኮድ: ${finalCode}\n\n` +
                     `⏳ ከተረጋገጠ በኋላ ሒሳብዎ ይጨምራል።`,
                     { reply_markup: getMainKeyboard(telegramId) }
                 );
