@@ -680,7 +680,7 @@ bot.on('message', async (msg) => {
             const rawText = text.trim();
             
             // ✅ 100% PERFECT PARSING: Extract Transaction ID and Amount from various Amharic SMS formats
-            const txIdPattern = /(?:ቁጥርዎ|receipt\/)\s*([A-Z0-9]{8,15})/i;
+            const txIdPattern = /(?:ቁጥርዎ|receipt\/|ቁጥርዎ\s*)\s*([A-Z0-9]{8,15})/i;
             const amountPattern = /([\d,.]+)\s*ብር/;
             
             const txIdMatch = rawText.match(txIdPattern);
@@ -703,6 +703,12 @@ bot.on('message', async (msg) => {
                     finalAmount = parsedAmount;
                     console.log(`Extracted Amount from user input: ${finalAmount}`);
                 }
+            }
+
+            // ✅ VALIDATION: Minimum deposit amount 20 ETB
+            if (finalAmount < 20) {
+                await bot.sendMessage(chatId, '❌ ዝቅተኛው ዲፖዚት 20 ብር ነው። እባክዎ ከ20 ብር በላይ ያስገቡ።');
+                return;
             }
 
             try {
@@ -2356,7 +2362,7 @@ app.post('/telebirr-webhook', async (req, res) => {
     }
 
     // Regex patterns for Transaction ID and Amount based on Amharic format
-    const txIdPattern = /(?:ቁጥርዎ|receipt\/)\s*([A-Z0-9]{8,15})/i;
+    const txIdPattern = /(?:ቁጥርዎ|receipt\/|ቁጥርዎ\s*)\s*([A-Z0-9]{8,15})/i;
     const amountPattern = /([\d,.]+)\s*ብር/;
 
     const txIdMatch = message.match(txIdPattern);
