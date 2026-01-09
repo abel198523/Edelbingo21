@@ -138,26 +138,6 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
         const miniAppUrlWithId = MINI_APP_URL ? `${MINI_APP_URL}?tg_id=${telegramId}` : null;
         
         if (isRegistered) {
-            // Update wallet balance display in webapp if open
-            if (userId) {
-                // Find active session for this user and send update
-                for (const [sid, session] of activeSessions.entries()) {
-                    if (session.userId === userId && session.ws && session.ws.readyState === WebSocket.OPEN) {
-                        try {
-                            const wallet = await pool.query('SELECT balance FROM wallets WHERE user_id = $1', [userId]);
-                            if (wallet.rows.length > 0) {
-                                session.ws.send(JSON.stringify({
-                                    type: 'wallet_update',
-                                    balance: wallet.rows[0].balance
-                                }));
-                            }
-                        } catch (err) {
-                            console.error('Failed to send wallet update on /start:', err);
-                        }
-                    }
-                }
-            }
-
             await bot.sendMessage(chatId, "እንኳን ደህና መጡ! ጨዋታውን ለመጀመር 'Play' የሚለውን ቁልፍ ይጫኑ።", {
                 reply_markup: getMainKeyboard(telegramId)
             });
