@@ -665,7 +665,9 @@ function initializeWebSocket() {
 
     ws.onclose = function() {
         console.log('WebSocket disconnected. Reconnecting...');
-        setTimeout(initializeWebSocket, 2000);
+        if (ws.readyState !== WebSocket.CONNECTING && ws.readyState !== WebSocket.OPEN) {
+            setTimeout(initializeWebSocket, 2000);
+        }
     };
     
     ws.onmessage = function(event) {
@@ -675,11 +677,6 @@ function initializeWebSocket() {
         } catch (error) {
             console.error('Error parsing WebSocket message:', error);
         }
-    };
-    
-    ws.onclose = function() {
-        console.log('WebSocket disconnected');
-        setTimeout(initializeWebSocket, 3000);
     };
     
     ws.onerror = function(error) {
@@ -743,6 +740,15 @@ function handleWebSocketMessage(data) {
                 
                 if (data.phase === 'game') {
                     showGameScreen();
+                } else if (data.phase === 'selection') {
+                    const screens = ['landing-screen', 'profile-screen', 'wallet-screen', 'game-screen'];
+                    screens.forEach(id => {
+                        const el = document.getElementById(id);
+                        if (el) el.style.display = 'none';
+                    });
+                    const selectionScreen = document.getElementById('selection-screen');
+                    if (selectionScreen) selectionScreen.style.display = 'flex';
+                    generateCardSelection();
                 }
             } else if (data.phase === 'game') {
                 // User is not in the current game, show waiting message
