@@ -2290,7 +2290,7 @@ app.post('/telebirr-webhook', async (req, res) => {
         return res.status(403).json({ error: 'Unauthorized' });
     }
 
-    if (sender !== '0929878000' && sender !== '{{from}}') {
+    if (sender !== '0929878000' && sender !== '{{from}}' && sender !== '{from}') {
         console.log(`Ignoring message from sender: ${sender}`);
         return res.status(200).json({ status: 'ignored', reason: 'invalid_sender' });
     }
@@ -2303,6 +2303,10 @@ app.post('/telebirr-webhook', async (req, res) => {
     // Regex patterns for Transaction ID and Amount based on Amharic format
     const amountPattern = /([\d,.]+)\s*ብር/;
     const txIdPattern = /ቁጥርዎ\s*([A-Z0-9]+)/;
+
+    // Fallback patterns for different message structures
+    const altTxIdPattern = /ቁጥርዎ\s*([A-Z0-9]+)/i;
+    const altAmountPattern = /([\d,.]+)\s*ብር/;
 
     const amountMatch = message.match(amountPattern);
     const txIdMatch = message.match(txIdPattern);
