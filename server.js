@@ -524,19 +524,7 @@ bot.onText(/📱 Telebirr/, async (msg) => {
 // Handle CBE Birr selection
 bot.onText(/🏦 CBE Birr/, async (msg) => {
     const chatId = msg.chat.id;
-    const telegramId = msg.from.id;
-    const state = userStates.get(telegramId);
-    
-    if (state?.action === 'deposit' && state?.step === 'method') {
-        state.paymentMethod = 'cbe_birr';
-        state.step = 'amount';
-        userStates.set(telegramId, state);
-        
-        await bot.sendMessage(chatId, 
-            '🏦 CBE Birr ተመርጧል\n\n💵 ማስገባት የሚፈልጉትን መጠን (ብር) ያስገቡ:',
-            { reply_markup: { keyboard: [[{ text: "❌ ሰርዝ" }]], resize_keyboard: true } }
-        );
-    }
+    await bot.sendMessage(chatId, '⚠️ የኢትዮጵያ ንግድ ባንክ (CBE) ዲፖዚት ለጊዜው በጥገና ላይ ነው።\n\nእባክዎ ለጊዜው <b>Telebirr</b> በመጠቀም ዲፖዚት ያድርጉ።', { parse_mode: 'HTML' });
 });
 
 // Handle Cancel
