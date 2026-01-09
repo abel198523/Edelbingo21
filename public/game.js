@@ -718,6 +718,20 @@ function handleWebSocketMessage(data) {
         return;
     }
 
+    // Handle waiting message for new users joining during active game
+    const waitingMessage = document.getElementById('waiting-game-message');
+    const selectionContent = document.getElementById('selection-content');
+    
+    if (waitingMessage && selectionContent && data.phase) {
+        if (data.phase === 'game' && !cardConfirmed) {
+            waitingMessage.style.display = 'flex';
+            selectionContent.style.display = 'none';
+        } else {
+            waitingMessage.style.display = 'none';
+            selectionContent.style.display = 'block';
+        }
+    }
+
     switch (data.type) {
         case 'init':
             console.log('Game initialized:', data);
