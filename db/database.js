@@ -70,6 +70,8 @@ async function initializeDatabase() {
                 password_hash VARCHAR(255),
                 is_registered BOOLEAN DEFAULT false,
                 referred_by INTEGER,
+                deposit_attempts INTEGER DEFAULT 3,
+                deposit_banned_until TIMESTAMP,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 last_login TIMESTAMP,
                 is_active BOOLEAN DEFAULT true

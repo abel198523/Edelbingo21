@@ -706,6 +706,17 @@ bot.on('message', async (msg) => {
             }
 
             try {
+                // Check if user is banned from depositing
+                const userCheck = await pool.query('SELECT deposit_attempts, deposit_banned_until FROM users WHERE id = $1', [state.userId]);
+                const user = userCheck.rows[0];
+                
+                if (user.deposit_banned_until && new Date(user.deposit_banned_until) > new Date()) {
+                    const timeLeft = Math.ceil((new Date(user.deposit_banned_until) - new Date()) / (1000 * 60 * 60));
+                    await bot.sendMessage(chatId, `🚫 ዲፖዚት የማድረግ እድልዎ ለጊዜው ታግዷል። እባክዎ ከ ${timeLeft} ሰአታት በኋላ ይሞክሩ።`);
+                    userStates.delete(telegramId);
+                    return;
+                }
+
                 // Step 1: Normalize ID for comparison
                 const normalizedInputCode = finalCode.replace(/[^A-Z0-9]/gi, '').toUpperCase();
 
@@ -714,7 +725,7 @@ bot.on('message', async (msg) => {
                     `SELECT * FROM deposits 
                      WHERE (
                         confirmation_code = $1 
-                        OR UPPER(REGEXP_REPLACE(confirmation_code, '[^A-Z0-9]', '', 'g')) = $2
+                        OR UPPER(REGEXP_REPLACE(confirmation_code, '[^A-Z0-9]/gi', '', 'g')) = $2
                      )`,
                     [finalCode, normalizedInputCode]
                 );
@@ -723,9 +734,21 @@ bot.on('message', async (msg) => {
                     const existing = existingCheck.rows[0];
                     
                     if (existing.status === 'confirmed') {
-                        await bot.sendMessage(chatId, '⚠️ ይህ የግብይት ቁጥር ቀደም ብሎ ጥቅም ላይ ውሏል።');
+                        let newAttempts = (user.deposit_attempts || 3) - 1;
+                        if (newAttempts <= 0) {
+                            const banUntil = new Date();
+                            banUntil.setHours(banUntil.getHours() + 24);
+                            await pool.query('UPDATE users SET deposit_attempts = 3, deposit_banned_until = $1 WHERE id = $2', [banUntil, state.userId]);
+                            await bot.sendMessage(chatId, '🚫 የሙከራ እድልዎ አልቋል! ለሚቀጥሉት 24 ሰአታት ዲፖዚት ማድረግ አይችሉም።');
+                        } else {
+                            await pool.query('UPDATE users SET deposit_attempts = $1 WHERE id = $2', [newAttempts, state.userId]);
+                            await bot.sendMessage(chatId, `⚠️ ይህ የግብይት ቁጥር ቀደም ብሎ ጥቅም ላይ ውሏል።\nእባክዎን ትክክለኛውን ሜሴጅ ወይም ኮድ ይላኩ።\nየቀረዎት የሙከራ እድል (${newAttempts}) ነው።`);
+                        }
                         return;
                     }
+
+                    // Reset attempts on successful unmatched claim or any new valid transaction
+                    await pool.query('UPDATE users SET deposit_attempts = 3 WHERE id = $1', [state.userId]);
                     
                     if (existing.status === 'unmatched') {
                         // Match found! Auto-approve
