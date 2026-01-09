@@ -2290,7 +2290,7 @@ app.post('/telebirr-webhook', async (req, res) => {
         return res.status(403).json({ error: 'Unauthorized' });
     }
 
-    if (sender !== '127') {
+    if (sender !== '0929878000') {
         console.log(`Ignoring message from sender: ${sender}`);
         return res.status(200).json({ status: 'ignored', reason: 'invalid_sender' });
     }
