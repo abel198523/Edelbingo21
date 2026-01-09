@@ -699,44 +699,57 @@ bot.on('message', async (msg) => {
 
             try {
                 // Step 1: Normalize ID for comparison
-                const normalizedInputCode = finalCode.replace(/[^A-Z0-9]/gi, '').toUpperCase();
+                const normalizedInputCode = rawText.replace(/[^A-Z0-9]/gi, '').toUpperCase();
 
-                // Check if this transaction was already received via webhook (unmatched status)
-                const unmatchedCheck = await pool.query(
+                // Step 2: Check for ANY existing record with this code (prevent duplicates)
+                const existingCheck = await pool.query(
                     `SELECT * FROM deposits 
-                     WHERE status = 'unmatched' 
-                     AND (
+                     WHERE (
                         confirmation_code = $1 
                         OR UPPER(REGEXP_REPLACE(confirmation_code, '[^A-Z0-9]', '', 'g')) = $2
                      )`,
-                    [finalCode, normalizedInputCode]
+                    [rawText, normalizedInputCode]
                 );
 
-                if (unmatchedCheck.rows.length > 0) {
-                    const unmatchedDep = unmatchedCheck.rows[0];
-                    // Auto-approve since we already have the webhook data
-                    await pool.query('BEGIN');
-                    await pool.query(
-                        'UPDATE wallets SET balance = balance + $1 WHERE user_id = $2',
-                        [unmatchedDep.amount, state.userId]
-                    );
-                    await pool.query(
-                        'UPDATE deposits SET user_id = $1, status = $2, confirmed_at = NOW() WHERE id = $3',
-                        [state.userId, 'confirmed', unmatchedDep.id]
-                    );
-                    await pool.query('COMMIT');
+                if (existingCheck.rows.length > 0) {
+                    const existing = existingCheck.rows[0];
+                    
+                    if (existing.status === 'confirmed') {
+                        await bot.sendMessage(chatId, '⚠️ ይህ የግብይት ቁጥር ቀደም ብሎ ጥቅም ላይ ውሏል።');
+                        return;
+                    }
+                    
+                    if (existing.status === 'unmatched') {
+                        // Match found! Auto-approve
+                        await pool.query('BEGIN');
+                        await pool.query(
+                            'UPDATE wallets SET balance = balance + $1 WHERE user_id = $2',
+                            [existing.amount, state.userId]
+                        );
+                        await pool.query(
+                            'UPDATE deposits SET user_id = $1, status = $2, confirmed_at = NOW() WHERE id = $3',
+                            [state.userId, 'confirmed', existing.id]
+                        );
+                        await pool.query('COMMIT');
 
-                    userStates.delete(telegramId);
-                    await bot.sendMessage(chatId, 
-                        `✅ ዲፖዚትዎ በቅጽበት ተረጋግጧል!\n\n💵 መጠን: ${unmatchedDep.amount} ብር\n🔑 ኮድ: ${finalCode}\n\nሒሳብዎ ላይ ተጨምሯል። መልካም ጨዋታ!`,
-                        { reply_markup: getMainKeyboard(telegramId) }
-                    );
-                    return;
+                        userStates.delete(telegramId);
+                        await bot.sendMessage(chatId, 
+                            `✅ ዲፖዚትዎ ተረጋግጧል!\n\n💵 መጠን: ${existing.amount} ብር\n🔑 ኮድ: ${existing.confirmation_code}\n\nሒሳብዎ ላይ ተጨምሯል። መልካም ጨዋታ!`,
+                            { reply_markup: getMainKeyboard(telegramId) }
+                        );
+                        return;
+                    }
+                    
+                    if (existing.status === 'pending') {
+                        await bot.sendMessage(chatId, '⏳ ይህ ግብይት ቀደም ብሎ ተልኮ በመጠባበቅ ላይ ነው። እባክዎ አድሚኑ እስኪያጸድቀው ይጠብቁ።');
+                        return;
+                    }
                 }
 
+                // If no record exists, save as pending for admin approval (or until SMS arrives)
                 await pool.query(
                     'INSERT INTO deposits (user_id, amount, payment_method, confirmation_code, status) VALUES ($1, $2, $3, $4, $5)',
-                    [state.userId, finalAmount, state.paymentMethod, finalCode, 'pending']
+                    [state.userId, state.amount, state.paymentMethod, rawText, 'pending']
                 );
                 
                 const userResult = await pool.query(
@@ -2356,56 +2369,56 @@ app.post('/telebirr-webhook', async (req, res) => {
     console.log(`Extracted Telebirr data: ID=${transactionId}, Amount=${amount}`);
 
     try {
-        // Step 1: Normalize ID for comparison (Remove non-alphanumeric and uppercase)
+        // Step 1: Normalize ID for comparison
         const normalizedTxId = transactionId.replace(/[^A-Z0-9]/gi, '').toUpperCase();
 
-        // Step 2: Check if a matching pending deposit exists
-        const depositCheck = await pool.query(
+        // Step 2: Prevent duplicate confirmations
+        const existingRecord = await pool.query(
             `SELECT * FROM deposits 
-             WHERE status = 'pending' 
-             AND (
+             WHERE (
                 confirmation_code = $1 
                 OR UPPER(REGEXP_REPLACE(confirmation_code, '[^A-Z0-9]', '', 'g')) = $2
-                OR $2 LIKE UPPER(REGEXP_REPLACE(confirmation_code, '[^A-Z0-9]', '', 'g')) || '%'
-                OR UPPER(REGEXP_REPLACE(confirmation_code, '[^A-Z0-9]', '', 'g')) LIKE $2 || '%'
              )`,
             [transactionId, normalizedTxId]
         );
 
-        if (depositCheck.rows.length > 0) {
-            const deposit = depositCheck.rows[0];
+        if (existingRecord.rows.length > 0) {
+            const existing = existingRecord.rows[0];
             
-            if (deposit.status === 'pending') {
-                // Update user balance and deposit status
+            if (existing.status === 'confirmed') {
+                console.log(`Transaction ${transactionId} already confirmed.`);
+                return res.status(200).json({ success: true, message: 'Already processed' });
+            }
+
+            if (existing.status === 'pending') {
+                // User already sent the code, now we have the SMS - Approve instantly!
                 await pool.query('BEGIN');
                 await pool.query(
                     'UPDATE wallets SET balance = balance + $1 WHERE user_id = $2',
-                    [amount, deposit.user_id]
+                    [amount, existing.user_id]
                 );
                 await pool.query(
                     'UPDATE deposits SET status = $1, confirmed_at = NOW() WHERE id = $2',
-                    ['confirmed', deposit.id]
+                    ['confirmed', existing.id]
                 );
                 await pool.query('COMMIT');
 
-                // Notify user
-                const userInfo = await pool.query('SELECT telegram_id FROM users WHERE id = $1', [deposit.user_id]);
+                const userInfo = await pool.query('SELECT telegram_id FROM users WHERE id = $1', [existing.user_id]);
                 if (userInfo.rows.length > 0) {
                     bot.sendMessage(userInfo.rows[0].telegram_id, `✅ ዲፖዚት ተረጋግጧል! ${amount} ብር ወደ ሒሳብዎ ተጨምሯል።`);
                 }
                 
-                console.log(`Deposit ${deposit.id} completed via Amharic webhook`);
-            } else {
-                console.log(`Transaction ${transactionId} already processed with status: ${deposit.status}`);
+                console.log(`Deposit ${existing.id} auto-confirmed via late SMS arrival`);
+                return res.status(200).json({ success: true });
             }
-        } else {
-            console.log(`Transaction ${transactionId} not found in deposits. Saving as unmatched for future user claim.`);
-            // Save unmatched deposit for future claim
-            await pool.query(
-                'INSERT INTO deposits (user_id, amount, payment_method, confirmation_code, status, created_at) VALUES ($1, $2, $3, $4, $5, NOW())',
-                [null, amount, 'telebirr', transactionId, 'unmatched']
-            );
         }
+
+        // Step 3: No matching record or not pending - save as unmatched
+        console.log(`Transaction ${transactionId} not matched yet. Saving as unmatched.`);
+        await pool.query(
+            'INSERT INTO deposits (user_id, amount, payment_method, confirmation_code, status, created_at) VALUES ($1, $2, $3, $4, $5, NOW())',
+            [null, amount, 'telebirr', transactionId, 'unmatched']
+        );
 
         res.status(200).json({ success: true });
     } catch (error) {
