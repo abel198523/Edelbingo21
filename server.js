@@ -713,7 +713,7 @@ bot.on('message', async (msg) => {
                     `SELECT * FROM deposits 
                      WHERE (
                         confirmation_code = $1 
-                        OR UPPER(REGEXP_REPLACE(confirmation_code, '[^A-Z0-9]/gi', '', 'g')) = $2
+                        OR UPPER(REGEXP_REPLACE(confirmation_code, '[^A-Z0-9]', '', 'g')) = $2
                      )`,
                     [finalCode, normalizedInputCode]
                 );
