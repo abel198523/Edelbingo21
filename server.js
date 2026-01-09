@@ -2316,16 +2316,16 @@ app.post('/telebirr-webhook', async (req, res) => {
         return res.status(422).json({ error: 'Data extraction failed' });
     }
 
-    const transactionId = txIdMatch[1];
+    const transactionId = txIdMatch[1].trim();
     const amount = parseFloat(amountMatch[1].replace(/,/g, ''));
 
     console.log(`Extracted Amharic format: ID=${transactionId}, Amount=${amount}`);
 
     try {
-        // Check if transaction exists
+        // Check if transaction exists - allow for slight variations or trailing characters
         const depositCheck = await pool.query(
-            'SELECT * FROM deposits WHERE confirmation_code = $1',
-            [transactionId]
+            'SELECT * FROM deposits WHERE (confirmation_code = $1 OR confirmation_code = LEFT($1, LENGTH(confirmation_code)) OR LEFT(confirmation_code, LENGTH($1)) = $1) AND status = $2',
+            [transactionId, 'pending']
         );
 
         if (depositCheck.rows.length > 0) {
