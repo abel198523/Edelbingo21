@@ -677,28 +677,39 @@ bot.on('message', async (msg) => {
                 { parse_mode: 'HTML' }
             );
         } else if (state.step === 'confirmation_code') {
-            state.confirmationCode = text;
+            const rawText = text.trim();
             
-            // ✅ IMPROVED: Automated parsing for direct SMS pastes
+            // ✅ IMPROVED: Automated parsing for direct SMS pastes or plain codes
             const amountPattern = /([\d,.]+)\s*ብር/;
             const txIdPattern = /ቁጥርዎ\s*([A-Z0-9]+)/;
-            const amountMatch = text.match(amountPattern);
-            const txIdMatch = text.match(txIdPattern);
+            const amountMatch = rawText.match(amountPattern);
+            const txIdMatch = rawText.match(txIdPattern);
             
             let finalAmount = state.amount;
-            let finalCode = text;
+            let finalCode = rawText;
             
             if (txIdMatch && amountMatch) {
                 finalCode = txIdMatch[1].trim();
                 finalAmount = parseFloat(amountMatch[1].replace(/,/g, ''));
                 console.log(`Auto-parsed deposit from direct paste: ID=${finalCode}, Amount=${finalAmount}`);
+            } else if (/^[A-Z0-9]{8,15}$/i.test(rawText)) {
+                // It looks like just a transaction ID
+                finalCode = rawText.toUpperCase();
             }
 
             try {
+                // Step 1: Normalize ID for comparison
+                const normalizedInputCode = finalCode.replace(/[^A-Z0-9]/gi, '').toUpperCase();
+
                 // Check if this transaction was already received via webhook (unmatched status)
                 const unmatchedCheck = await pool.query(
-                    'SELECT * FROM deposits WHERE confirmation_code = $1 AND status = $2',
-                    [finalCode, 'unmatched']
+                    `SELECT * FROM deposits 
+                     WHERE status = 'unmatched' 
+                     AND (
+                        confirmation_code = $1 
+                        OR UPPER(REGEXP_REPLACE(confirmation_code, '[^A-Z0-9]', '', 'g')) = $2
+                     )`,
+                    [finalCode, normalizedInputCode]
                 );
 
                 if (unmatchedCheck.rows.length > 0) {
@@ -2342,20 +2353,23 @@ app.post('/telebirr-webhook', async (req, res) => {
     const transactionId = txIdMatch[1].trim();
     const amount = parseFloat(amountMatch[1].replace(/,/g, ''));
 
-    console.log(`Extracted Amharic format: ID=${transactionId}, Amount=${amount}`);
+    console.log(`Extracted Telebirr data: ID=${transactionId}, Amount=${amount}`);
 
     try {
-        // IMPROVED: More flexible matching to handle trailing characters or variations
+        // Step 1: Normalize ID for comparison (Remove non-alphanumeric and uppercase)
+        const normalizedTxId = transactionId.replace(/[^A-Z0-9]/gi, '').toUpperCase();
+
+        // Step 2: Check if a matching pending deposit exists
         const depositCheck = await pool.query(
             `SELECT * FROM deposits 
-             WHERE (
+             WHERE status = 'pending' 
+             AND (
                 confirmation_code = $1 
-                OR $1 LIKE confirmation_code || '%' 
-                OR confirmation_code LIKE $1 || '%'
-                OR confirmation_code = RIGHT($1, LENGTH(confirmation_code))
-                OR RIGHT(confirmation_code, LENGTH($1)) = $1
-             ) AND status = $2`,
-            [transactionId, 'pending']
+                OR UPPER(REGEXP_REPLACE(confirmation_code, '[^A-Z0-9]', '', 'g')) = $2
+                OR $2 LIKE UPPER(REGEXP_REPLACE(confirmation_code, '[^A-Z0-9]', '', 'g')) || '%'
+                OR UPPER(REGEXP_REPLACE(confirmation_code, '[^A-Z0-9]', '', 'g')) LIKE $2 || '%'
+             )`,
+            [transactionId, normalizedTxId]
         );
 
         if (depositCheck.rows.length > 0) {
