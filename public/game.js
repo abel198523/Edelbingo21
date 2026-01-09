@@ -714,17 +714,38 @@ function handleWebSocketMessage(data) {
                 cardConfirmed = data.isCardConfirmed || false;
                 
                 if (data.phase === 'game') {
-                    // Force switch to game screen if game is in progress
-                    const landingScreen = document.getElementById('landing-screen');
-                    const selectionScreen = document.getElementById('selection-screen');
-                    const gameScreen = document.getElementById('game-screen');
+                    // Show rejoin overlay for players who were already in the game
+                    const rejoinOverlay = document.getElementById('rejoin-overlay');
+                    const rejoinBtn = document.getElementById('rejoin-btn');
                     
-                    if (landingScreen) landingScreen.style.display = 'none';
-                    if (selectionScreen) selectionScreen.style.display = 'none';
-                    if (gameScreen) gameScreen.style.display = 'flex';
-                    
-                    renderPlayerCard(selectedCardId);
-                    updatePhaseDisplay('game');
+                    if (rejoinOverlay && rejoinBtn) {
+                        rejoinOverlay.style.display = 'flex';
+                        rejoinBtn.onclick = function() {
+                            rejoinOverlay.style.display = 'none';
+                            const landingScreen = document.getElementById('landing-screen');
+                            const selectionScreen = document.getElementById('selection-screen');
+                            const gameScreen = document.getElementById('game-screen');
+                            
+                            if (landingScreen) landingScreen.style.display = 'none';
+                            if (selectionScreen) selectionScreen.style.display = 'none';
+                            if (gameScreen) gameScreen.style.display = 'flex';
+                            
+                            renderPlayerCard(selectedCardId);
+                            updatePhaseDisplay('game');
+                        };
+                    } else {
+                        // Fallback if overlay elements are missing
+                        const landingScreen = document.getElementById('landing-screen');
+                        const selectionScreen = document.getElementById('selection-screen');
+                        const gameScreen = document.getElementById('game-screen');
+                        
+                        if (landingScreen) landingScreen.style.display = 'none';
+                        if (selectionScreen) selectionScreen.style.display = 'none';
+                        if (gameScreen) gameScreen.style.display = 'flex';
+                        
+                        renderPlayerCard(selectedCardId);
+                        updatePhaseDisplay('game');
+                    }
                 }
             }
             
