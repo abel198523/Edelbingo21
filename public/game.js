@@ -645,6 +645,11 @@ function initializeWebSocket() {
             }));
         }
     };
+
+    ws.onclose = function() {
+        console.log('WebSocket disconnected. Reconnecting...');
+        setTimeout(initializeWebSocket, 2000);
+    };
     
     ws.onmessage = function(event) {
         try {
@@ -702,6 +707,30 @@ function handleWebSocketMessage(data) {
             updateTimerDisplay(data.timeLeft);
             updatePhaseDisplay(data.phase);
             renderMasterGrid();
+            
+            // Session Recovery: Restore selected card if available
+            if (data.selectedCardId) {
+                selectedCardId = data.selectedCardId;
+                cardConfirmed = data.isCardConfirmed || false;
+                
+                if (data.phase === 'game') {
+                    // Force switch to game screen if game is in progress
+                    const landingScreen = document.getElementById('landing-screen');
+                    const selectionScreen = document.getElementById('selection-screen');
+                    const gameScreen = document.getElementById('game-screen');
+                    
+                    if (landingScreen) landingScreen.style.display = 'none';
+                    if (selectionScreen) selectionScreen.style.display = 'none';
+                    if (gameScreen) gameScreen.style.display = 'flex';
+                    
+                    renderPlayerCard(selectedCardId);
+                    updatePhaseDisplay('game');
+                }
+            }
+            
+            if (data.balance !== undefined) {
+                updateWalletDisplay(data.balance);
+            }
             
             // Handle taken cards
             if (data.takenCards) {

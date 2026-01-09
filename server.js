@@ -1699,37 +1699,85 @@ function getConfirmedPlayersCount() {
 }
 
 wss.on('connection', (ws) => {
-    const playerId = ++playerIdCounter;
-    const player = {
-        id: playerId,
-        userId: null,
-        username: 'Guest_' + playerId,
-        selectedCardId: null,
-        isCardConfirmed: false,
-        balance: 0
-    };
-    gameState.players.set(playerId, player);
-    
-    ws.playerId = playerId;
-    
-    ws.send(JSON.stringify({
-        type: 'init',
-        playerId: playerId,
-        phase: gameState.phase,
-        timeLeft: gameState.timeLeft,
-        calledNumbers: gameState.calledNumbers,
-        winner: gameState.winner,
-        gameId: currentGameId,
-        takenCards: Array.from(gameState.players.values())
-            .filter(p => p.isCardConfirmed && p.selectedCardId)
-            .map(p => p.selectedCardId)
-    }));
-    
     ws.on('message', async (message) => {
         try {
             const data = JSON.parse(message);
-            const player = gameState.players.get(playerId);
             
+            if (data.type === 'auth_telegram') {
+                const telegramId = data.telegramId.toString();
+                
+                // Session Recovery: Look for an existing player object with this telegramId
+                let existingPlayerId = null;
+                for (let [pid, p] of gameState.players.entries()) {
+                    if (p.telegramId === telegramId) {
+                        existingPlayerId = pid;
+                        break;
+                    }
+                }
+
+                if (existingPlayerId) {
+                    console.log(`Reconnecting player: ${telegramId} (ID: ${existingPlayerId})`);
+                    ws.playerId = existingPlayerId;
+                    const player = gameState.players.get(existingPlayerId);
+                    player.ws = ws; // Update the socket reference
+                    
+                    ws.send(JSON.stringify({
+                        type: 'init',
+                        playerId: existingPlayerId,
+                        phase: gameState.phase,
+                        timeLeft: gameState.timeLeft,
+                        calledNumbers: gameState.calledNumbers,
+                        winner: gameState.winner,
+                        gameId: currentGameId,
+                        selectedCardId: player.selectedCardId,
+                        isCardConfirmed: player.isCardConfirmed,
+                        balance: player.balance,
+                        takenCards: Array.from(gameState.players.values())
+                            .filter(p => p.isCardConfirmed && p.selectedCardId)
+                            .map(p => p.selectedCardId)
+                    }));
+                } else {
+                    const playerId = ++playerIdCounter;
+                    ws.playerId = playerId;
+                    const player = {
+                        id: playerId,
+                        telegramId: telegramId,
+                        userId: null,
+                        username: data.username || 'Guest_' + playerId,
+                        selectedCardId: null,
+                        isCardConfirmed: false,
+                        balance: 0,
+                        ws: ws
+                    };
+                    gameState.players.set(playerId, player);
+                    
+                    const user = await User.findOrCreateByTelegram(telegramId, player.username);
+                    player.userId = user.id;
+                    player.username = user.username;
+                    player.balance = parseFloat(user.balance || 0);
+
+                    ws.send(JSON.stringify({
+                        type: 'init',
+                        playerId: playerId,
+                        phase: gameState.phase,
+                        timeLeft: gameState.timeLeft,
+                        calledNumbers: gameState.calledNumbers,
+                        winner: gameState.winner,
+                        gameId: currentGameId,
+                        balance: player.balance,
+                        takenCards: Array.from(gameState.players.values())
+                            .filter(p => p.isCardConfirmed && p.selectedCardId)
+                            .map(p => p.selectedCardId)
+                    }));
+                }
+                return;
+            }
+
+            const playerId = ws.playerId;
+            if (!playerId) return;
+            const player = gameState.players.get(playerId);
+            if (!player) return;
+
             switch (data.type) {
                 case 'auth_telegram':
                     try {
