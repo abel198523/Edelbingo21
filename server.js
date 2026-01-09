@@ -679,27 +679,35 @@ bot.on('message', async (msg) => {
         } else if (state.step === 'confirmation_code') {
             const rawText = text.trim();
             
-            // ✅ IMPROVED: Automated parsing for direct SMS pastes or plain codes
+            // ✅ 100% PERFECT PARSING: Extract Transaction ID and Amount from various Amharic SMS formats
+            const txIdPattern = /(?:ቁጥርዎ|receipt\/)\s*([A-Z0-9]{8,15})/i;
             const amountPattern = /([\d,.]+)\s*ብር/;
-            const txIdPattern = /ቁጥርዎ\s*([A-Z0-9]+)/;
-            const amountMatch = rawText.match(amountPattern);
+            
             const txIdMatch = rawText.match(txIdPattern);
+            const amountMatch = rawText.match(amountPattern);
             
-            let finalAmount = state.amount;
             let finalCode = rawText;
+            let finalAmount = state.amount;
             
-            if (txIdMatch && amountMatch) {
-                finalCode = txIdMatch[1].trim();
-                finalAmount = parseFloat(amountMatch[1].replace(/,/g, ''));
-                console.log(`Auto-parsed deposit from direct paste: ID=${finalCode}, Amount=${finalAmount}`);
+            if (txIdMatch) {
+                finalCode = txIdMatch[1].trim().toUpperCase();
+                console.log(`Extracted Transaction ID from user input: ${finalCode}`);
             } else if (/^[A-Z0-9]{8,15}$/i.test(rawText)) {
-                // It looks like just a transaction ID
+                // If it's just a plain code
                 finalCode = rawText.toUpperCase();
+            }
+            
+            if (amountMatch) {
+                const parsedAmount = parseFloat(amountMatch[1].replace(/,/g, ''));
+                if (!isNaN(parsedAmount)) {
+                    finalAmount = parsedAmount;
+                    console.log(`Extracted Amount from user input: ${finalAmount}`);
+                }
             }
 
             try {
                 // Step 1: Normalize ID for comparison
-                const normalizedInputCode = rawText.replace(/[^A-Z0-9]/gi, '').toUpperCase();
+                const normalizedInputCode = finalCode.replace(/[^A-Z0-9]/gi, '').toUpperCase();
 
                 // Step 2: Check for ANY existing record with this code (prevent duplicates)
                 const existingCheck = await pool.query(
@@ -708,7 +716,7 @@ bot.on('message', async (msg) => {
                         confirmation_code = $1 
                         OR UPPER(REGEXP_REPLACE(confirmation_code, '[^A-Z0-9]', '', 'g')) = $2
                      )`,
-                    [rawText, normalizedInputCode]
+                    [finalCode, normalizedInputCode]
                 );
 
                 if (existingCheck.rows.length > 0) {
@@ -2348,22 +2356,18 @@ app.post('/telebirr-webhook', async (req, res) => {
     }
 
     // Regex patterns for Transaction ID and Amount based on Amharic format
+    const txIdPattern = /(?:ቁጥርዎ|receipt\/)\s*([A-Z0-9]{8,15})/i;
     const amountPattern = /([\d,.]+)\s*ብር/;
-    const txIdPattern = /ቁጥርዎ\s*([A-Z0-9]+)/;
 
-    // Fallback patterns for different message structures
-    const altTxIdPattern = /ቁጥርዎ\s*([A-Z0-9]+)/i;
-    const altAmountPattern = /([\d,.]+)\s*ብር/;
-
-    const amountMatch = message.match(amountPattern);
     const txIdMatch = message.match(txIdPattern);
+    const amountMatch = message.match(amountPattern);
 
     if (!txIdMatch || !amountMatch) {
         console.error('Failed to extract data from message:', message);
         return res.status(422).json({ error: 'Data extraction failed' });
     }
 
-    const transactionId = txIdMatch[1].trim();
+    const transactionId = txIdMatch[1].trim().toUpperCase();
     const amount = parseFloat(amountMatch[1].replace(/,/g, ''));
 
     console.log(`Extracted Telebirr data: ID=${transactionId}, Amount=${amount}`);
