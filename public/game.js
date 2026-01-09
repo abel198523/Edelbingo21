@@ -722,26 +722,26 @@ function handleWebSocketMessage(data) {
         case 'init':
             console.log('Game initialized:', data);
             
-            // Session Recovery: Restore selected card and show rejoin overlay if in game phase
+            // Session Recovery: Restore selected card
             if (data.selectedCardId) {
                 selectedCardId = data.selectedCardId;
                 cardConfirmed = data.isCardConfirmed || false;
                 
                 if (data.phase === 'game') {
-                    const rejoinOverlay = document.getElementById('rejoin-overlay');
-                    const rejoinBtn = document.getElementById('rejoin-btn');
-                    
-                    if (rejoinOverlay) {
-                        rejoinOverlay.style.display = 'flex';
-                        if (rejoinBtn) {
-                            rejoinBtn.onclick = function() {
-                                rejoinOverlay.style.display = 'none';
-                                showGameScreen();
-                            };
-                        }
-                    } else {
-                        showGameScreen();
-                    }
+                    showGameScreen();
+                }
+            } else if (data.phase === 'game') {
+                // User is not in the current game, show waiting message
+                const landingScreen = document.getElementById('landing-screen');
+                const selectionScreen = document.getElementById('selection-screen');
+                const gameScreen = document.getElementById('game-screen');
+                
+                if (landingScreen) landingScreen.style.display = 'none';
+                if (selectionScreen) selectionScreen.style.display = 'none';
+                if (gameScreen) {
+                    gameScreen.style.display = 'flex';
+                    const statusText = document.getElementById('game-status-text');
+                    if (statusText) statusText.textContent = 'ጨዋታው ተጀምሯል። እባክዎ ይህ ጨዋታ እስኪያልቅ ይጠብቁ...';
                 }
             }
             
