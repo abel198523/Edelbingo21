@@ -691,6 +691,11 @@ function handleWebSocketMessage(data) {
     // Update stats for any message that carries them
     updateGameStats(data);
 
+    if (data.type === 'wallet_update') {
+        updateWalletDisplay(data.balance);
+        return;
+    }
+
     switch (data.type) {
         case 'init':
             console.log('Game initialized:', data);
@@ -739,6 +744,18 @@ function handleWebSocketMessage(data) {
                 const calledCountEl = document.getElementById('called-count');
                 if (calledCountEl) calledCountEl.textContent = `${data.calledNumbers.length}/75`;
             }
+            break;
+        case 'game_over':
+            console.log('Game Over event');
+            resetGameUI();
+            // ✅ Update wallet balance immediately after game over
+            loadWallet();
+            break;
+        case 'winner_declared':
+            console.log('Winner declared:', data.winner);
+            showWinnerDisplay(data.winner);
+            // ✅ Update wallet balance immediately if there's a winner
+            loadWallet();
             break;
         case 'card_confirmed':
             updateWalletDisplay(data.balance);
