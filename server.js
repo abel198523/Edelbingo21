@@ -2370,6 +2370,12 @@ app.post('/telebirr-webhook', async (req, res) => {
     const transactionId = txIdMatch[1].trim().toUpperCase();
     const amount = parseFloat(amountMatch[1].replace(/,/g, ''));
 
+    // ✅ VALIDATION: Minimum deposit amount 20 ETB
+    if (amount < 20) {
+        console.log(`Rejecting deposit: Amount ${amount} is below minimum 20 ETB.`);
+        return res.status(200).json({ status: 'ignored', reason: 'amount_too_low' });
+    }
+
     console.log(`Extracted Telebirr data: ID=${transactionId}, Amount=${amount}`);
 
     try {
